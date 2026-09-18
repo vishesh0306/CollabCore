@@ -15,6 +15,7 @@ import com.collabflow.team.dto.AddMemberRequest;
 import com.collabflow.team.dto.ChangeRoleRequest;
 import com.collabflow.team.dto.MemberResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class TeamMemberService {
     private final TeamMemberRepository memberRepository;
     private final TeamAccess teamAccess;
     private final UserService userService;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public MemberResponse addMember(UUID callerId, UUID teamId, AddMemberRequest request) {
@@ -62,6 +64,8 @@ public class TeamMemberService {
             requireAnotherManager(teamId);
         }
         memberRepository.delete(member);
+        // Listeners run right away, inside this same transaction (e.g. tasks unassign the person).
+        events.publishEvent(new TeamMemberRemovedEvent(teamId, userId));
     }
 
     /** The user, if they are a manager of the team. Other features use this, e.g. to check a project lead. */

@@ -175,6 +175,33 @@ class TaskControllerTest extends ApiTest {
         getTask(member.token(), key).andExpect(status().isOk()); // still readable
     }
 
+    @Test
+    void removingSomeoneFromATeamUnassignsThemFromThatTeamsTasksOnly() throws Exception {
+        String key = createTaskAndGetKey(member.token(), List.of(member.id(), otherMember.id()));
+        // The same person also works in another team, on a task there.
+        TestUser otherManager = newUser();
+        UUID otherTeamId = createTeam(otherManager);
+        addToTeam(otherTeamId, member, "MEMBER");
+        TestProject otherProject = createProject(otherManager, otherTeamId);
+        String otherKey = JsonPath.read(mockMvc.perform(post("/api/v1/projects/{id}/tasks", otherProject.id())
+                        .header("Authorization", otherManager.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title": "Elsewhere", "assigneeIds": ["%s"]}
+                                """.formatted(member.id())))
+                .andReturn().getResponse().getContentAsString(), "$.key");
+
+        mockMvc.perform(delete("/api/v1/teams/{teamId}/members/{userId}", teamId, member.id())
+                        .header("Authorization", manager.token()))
+                .andExpect(status().isNoContent());
+
+        getTask(manager.token(), key)
+                .andExpect(jsonPath("$.assignees.length()").value(1))
+                .andExpect(jsonPath("$.assignees[0].id").value(otherMember.id().toString()));
+        getTask(otherManager.token(), otherKey)
+                .andExpect(jsonPath("$.assignees[0].id").value(member.id().toString()));
+    }
+
     // --- helpers ---
 
     private String createTaskAndGetKey(String token, List<UUID> assigneeIds) throws Exception {

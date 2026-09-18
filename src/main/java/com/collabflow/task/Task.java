@@ -8,6 +8,7 @@ import java.util.UUID;
 
 import com.collabflow.identity.User;
 import com.collabflow.project.Project;
+import com.collabflow.sprint.Sprint;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -50,6 +51,11 @@ public class Task {
 
     /** Copied from the project, so a team's tasks can be listed without a join. */
     private UUID teamId;
+
+    /** The sprint this task is in, or null when it is in its project's backlog. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sprint_id")
+    private Sprint sprint;
 
     private int number;
 
@@ -126,6 +132,11 @@ public class Task {
     public void replaceAssignees(Set<User> newAssignees) {
         assignees.clear();
         assignees.addAll(newAssignees);
+    }
+
+    /** Puts the task into a sprint, or back into the backlog with null. */
+    public void moveToSprint(Sprint sprint) {
+        this.sprint = sprint;
     }
 
     public void delete() {

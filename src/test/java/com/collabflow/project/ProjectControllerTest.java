@@ -1,5 +1,6 @@
 package com.collabflow.project;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -9,13 +10,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.UUID;
 
 import com.collabflow.ApiTest;
+import com.collabflow.identity.User;
+import com.collabflow.identity.UserRepository;
+import com.collabflow.team.Team;
+import com.collabflow.team.TeamRepository;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 
 class ProjectControllerTest extends ApiTest {
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Autowired
+    private TeamRepository teamRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     private TestUser manager;
     private TestUser member;
@@ -161,6 +177,16 @@ class ProjectControllerTest extends ApiTest {
                         .header("Authorization", member.token()))
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].id").value(activeId));
+    }
+
+    @Test
+    void theDatabaseRejectsABadCodeEvenWhenTheApiIsSkipped() {
+        Team team = teamRepository.findById(teamId).orElseThrow();
+        User lead = userRepository.findById(manager.id()).orElseThrow();
+        Project badProject = new Project(team, "pay-1", "Bad code", null, lead);
+
+        assertThatThrownBy(() -> projectRepository.saveAndFlush(badProject))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     // --- helpers ---

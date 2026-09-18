@@ -11,6 +11,7 @@ import com.collabflow.team.dto.TeamResponse;
 import com.collabflow.team.dto.TeamSummaryResponse;
 import com.collabflow.team.dto.UpdateTeamRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,9 @@ public class TeamService {
 
         Team team = teamRepository.save(new Team(request.name(), request.description()));
         TeamMember firstManager = memberRepository.save(new TeamMember(team, manager, TeamRole.MANAGER));
+        // Run both INSERTs now. The @CreationTimestamp values are only filled in when the INSERT
+        // runs, so without this the response would show createdAt and joinedAt as null.
+        flushOrConflict();
         return TeamResponse.from(team, List.of(firstManager));
     }
 
@@ -73,6 +77,16 @@ public class TeamService {
             throw new ConflictException("A team with this name already exists");
         }
         team.update(request.name(), request.description());
+        flushOrConflict();
         return TeamResponse.from(team, memberRepository.findMembersWithUser(teamId));
+    }
+
+    /** Writes pending changes now, so a name taken at the same moment by someone else is caught here. */
+    private void flushOrConflict() {
+        try {
+            teamRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException("A team with this name already exists");
+        }
     }
 }

@@ -26,7 +26,9 @@ class TeamControllerTest extends ApiTest {
         createTeam(adminToken(), name, manager.email())
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value(name))
+                .andExpect(jsonPath("$.createdAt").isNotEmpty())
                 .andExpect(jsonPath("$.members[0].email").value(manager.email()))
+                .andExpect(jsonPath("$.members[0].joinedAt").isNotEmpty())
                 .andExpect(jsonPath("$.members[0].role").value("MANAGER"));
     }
 

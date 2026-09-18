@@ -12,12 +12,17 @@ import com.collabflow.identity.UserService;
 import com.collabflow.project.Project;
 import com.collabflow.project.ProjectService;
 import com.collabflow.shared.PageResponse;
+import com.collabflow.sprint.Sprint;
+import com.collabflow.sprint.SprintService;
 import com.collabflow.shared.error.BadRequestException;
+import com.collabflow.shared.error.ConflictException;
 import com.collabflow.shared.error.ForbiddenException;
 import com.collabflow.shared.error.NotFoundException;
 import com.collabflow.task.dto.ChangeStatusRequest;
 import com.collabflow.task.dto.CreateTaskRequest;
+import com.collabflow.task.dto.MoveToSprintRequest;
 import com.collabflow.task.dto.ReplaceAssigneesRequest;
+import com.collabflow.task.dto.SprintTasksResponse;
 import com.collabflow.task.dto.TaskResponse;
 import com.collabflow.task.dto.UpdateTaskRequest;
 import com.collabflow.team.TeamAccess;
@@ -39,6 +44,7 @@ public class TaskService {
 
     private final TaskRepository taskRepository;
     private final ProjectService projectService;
+    private final SprintService sprintService;
     private final TeamAccess teamAccess;
     private final TeamMemberService teamMemberService;
     private final UserService userService;
@@ -70,6 +76,42 @@ public class TaskService {
     @Transactional(readOnly = true)
     public PageResponse<TaskResponse> listTasks(UUID callerId, UUID teamId, TaskFilters filters, Pageable pageable) {
         teamAccess.requireVisible(teamId, callerId);
+        return findPage(teamId, filters, pageable);
+    }
+
+    /** A project's backlog: its tasks that are in no sprint. */
+    @Transactional(readOnly = true)
+    public PageResponse<TaskResponse> getBacklog(UUID callerId, UUID projectId, Pageable pageable) {
+        Project project = projectService.findVisibleProject(projectId, callerId);
+        TaskFilters backlogOnly = new TaskFilters(projectId, null, true, null, null, null, null);
+        return findPage(project.getTeam().getId(), backlogOnly, pageable);
+    }
+
+    /** A sprint's tasks grouped by project, with done/total counts. */
+    @Transactional(readOnly = true)
+    public SprintTasksResponse getSprintTasks(UUID callerId, UUID sprintId) {
+        Sprint sprint = sprintService.findVisibleSprint(sprintId, callerId);
+        return SprintTasksResponse.from(sprint.getId(), taskRepository.findInSprint(sprintId));
+    }
+
+    /**
+     * Puts the task into a planned or active sprint of its team, or back into the backlog (null).
+     * This counts as changing the task, so members can only move their own tasks.
+     */
+    @Transactional
+    public TaskResponse moveToSprint(UUID callerId, String key, MoveToSprintRequest request) {
+        Task task = findChangeableTask(key, callerId);
+        if (task.getSprint() != null && !task.getSprint().isOpen()) {
+            throw new ConflictException("This task is part of a completed sprint and stays there");
+        }
+        Sprint sprint = request.sprintId() == null
+                ? null
+                : sprintService.findOpenSprintOfTeam(request.sprintId(), task.getTeamId());
+        task.moveToSprint(sprint);
+        return TaskResponse.from(task);
+    }
+
+    private PageResponse<TaskResponse> findPage(UUID teamId, TaskFilters filters, Pageable pageable) {
         for (Sort.Order order : pageable.getSort()) {
             if (!SORTABLE_FIELDS.contains(order.getProperty())) {
                 throw new BadRequestException("Can't sort by '" + order.getProperty()

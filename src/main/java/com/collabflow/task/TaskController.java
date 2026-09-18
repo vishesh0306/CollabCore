@@ -6,7 +6,9 @@ import com.collabflow.shared.CurrentUser;
 import com.collabflow.shared.PageResponse;
 import com.collabflow.task.dto.ChangeStatusRequest;
 import com.collabflow.task.dto.CreateTaskRequest;
+import com.collabflow.task.dto.MoveToSprintRequest;
 import com.collabflow.task.dto.ReplaceAssigneesRequest;
+import com.collabflow.task.dto.SprintTasksResponse;
 import com.collabflow.task.dto.TaskResponse;
 import com.collabflow.task.dto.UpdateTaskRequest;
 import jakarta.validation.Valid;
@@ -54,6 +56,26 @@ public class TaskController {
             @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
         return taskService.listTasks(CurrentUser.id(jwt), teamId, filters, pageable);
+    }
+
+    /** A project's backlog: its tasks in no sprint, oldest first unless another sort is asked for. */
+    @GetMapping("/projects/{projectId}/backlog")
+    public PageResponse<TaskResponse> getBacklog(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId,
+            @ParameterObject @PageableDefault(size = 20, sort = "number") Pageable pageable) {
+        return taskService.getBacklog(CurrentUser.id(jwt), projectId, pageable);
+    }
+
+    /** A sprint's tasks grouped by project, with done/total counts. */
+    @GetMapping("/sprints/{sprintId}/tasks")
+    public SprintTasksResponse getSprintTasks(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID sprintId) {
+        return taskService.getSprintTasks(CurrentUser.id(jwt), sprintId);
+    }
+
+    @PutMapping("/tasks/{key}/sprint")
+    public TaskResponse moveToSprint(@AuthenticationPrincipal Jwt jwt, @PathVariable String key,
+                                     @RequestBody MoveToSprintRequest request) {
+        return taskService.moveToSprint(CurrentUser.id(jwt), key, request);
     }
 
     @GetMapping("/tasks/{key}")

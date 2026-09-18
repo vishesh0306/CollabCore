@@ -11,11 +11,13 @@ import org.springframework.format.annotation.DateTimeFormat;
 
 /**
  * The optional filters of the task list. Spring fills this record from the query parameters
- * (e.g. ?status=DONE&expectedBefore=2026-10-31). Each filter becomes a small Specification
+ * (e.g. ?status=DONE&expectedBefore=2026-10-31, or ?backlog=true for tasks in no sprint). Each filter becomes a small Specification
  * (one WHERE condition), and only the filters that were actually sent are combined with AND.
  */
 public record TaskFilters(
         UUID projectId,
+        UUID sprintId,
+        Boolean backlog,
         TaskStatus status,
         UUID assigneeId,
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate expectedBefore,
@@ -27,6 +29,12 @@ public record TaskFilters(
 
         if (projectId != null) {
             conditions.add((task, query, cb) -> cb.equal(task.get("project").get("id"), projectId));
+        }
+        if (sprintId != null) {
+            conditions.add((task, query, cb) -> cb.equal(task.get("sprint").get("id"), sprintId));
+        }
+        if (Boolean.TRUE.equals(backlog)) {
+            conditions.add((task, query, cb) -> cb.isNull(task.get("sprint")));
         }
         if (status != null) {
             conditions.add((task, query, cb) -> cb.equal(task.get("status"), status));

@@ -90,6 +90,24 @@ public abstract class ApiTest {
                         """.formatted(user.email(), role)));
     }
 
+    /** Creates a project in the team (as its manager) with a unique code; returns its id and code. */
+    protected TestProject createProject(TestUser manager, UUID teamId) throws Exception {
+        String code = uniqueProjectCode();
+        String body = mockMvc.perform(post("/api/v1/teams/{teamId}/projects", teamId)
+                        .header("Authorization", manager.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"code": "%s", "name": "Project %s", "leadUserId": "%s"}
+                                """.formatted(code, code, manager.id())))
+                .andReturn().getResponse().getContentAsString();
+        return new TestProject(UUID.fromString(JsonPath.read(body, "$.id")), code);
+    }
+
+    /** Project codes are unique across all tests in the shared database, e.g. "P3F9A1C0". */
+    protected static String uniqueProjectCode() {
+        return "P" + UUID.randomUUID().toString().replace("-", "").substring(0, 7).toUpperCase();
+    }
+
     protected static String uniqueEmail() {
         return "user-" + UUID.randomUUID() + "@example.com";
     }
@@ -100,5 +118,8 @@ public abstract class ApiTest {
     }
 
     protected record TestUser(UUID id, String email, String token) {
+    }
+
+    protected record TestProject(UUID id, String code) {
     }
 }

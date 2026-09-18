@@ -48,7 +48,7 @@ class ProjectControllerTest extends ApiTest {
 
     @Test
     void managerCreatesAProject() throws Exception {
-        String code = uniqueCode();
+        String code = uniqueProjectCode();
 
         createProject(manager.token(), teamId, code.toLowerCase(), manager.id())
                 .andExpect(status().isCreated())
@@ -61,13 +61,13 @@ class ProjectControllerTest extends ApiTest {
 
     @Test
     void membersCannotCreateProjects() throws Exception {
-        createProject(member.token(), teamId, uniqueCode(), manager.id())
+        createProject(member.token(), teamId, uniqueProjectCode(), manager.id())
                 .andExpect(status().isForbidden());
     }
 
     @Test
     void codesAreUniqueAcrossTheWholeCompany() throws Exception {
-        String code = uniqueCode();
+        String code = uniqueProjectCode();
         createProject(manager.token(), teamId, code, manager.id()).andExpect(status().isCreated());
 
         TestUser otherManager = newUser();
@@ -88,10 +88,10 @@ class ProjectControllerTest extends ApiTest {
 
     @Test
     void theLeadMustBeAManagerOfTheTeam() throws Exception {
-        createProject(manager.token(), teamId, uniqueCode(), member.id())
+        createProject(manager.token(), teamId, uniqueProjectCode(), member.id())
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detail").value("The lead must be one of the team's managers"));
-        createProject(manager.token(), teamId, uniqueCode(), newUser().id())
+        createProject(manager.token(), teamId, uniqueProjectCode(), newUser().id())
                 .andExpect(status().isBadRequest());
     }
 
@@ -205,7 +205,7 @@ class ProjectControllerTest extends ApiTest {
     }
 
     private String createProjectAndGetId() throws Exception {
-        String body = createProject(manager.token(), teamId, uniqueCode(), manager.id())
+        String body = createProject(manager.token(), teamId, uniqueProjectCode(), manager.id())
                 .andReturn().getResponse().getContentAsString();
         return JsonPath.read(body, "$.id");
     }
@@ -217,10 +217,5 @@ class ProjectControllerTest extends ApiTest {
                 .content("""
                         {"name": "%s", "description": "Updated", "leadUserId": "%s"}
                         """.formatted(name, manager.id())));
-    }
-
-    /** Codes are unique across all tests in the shared database, e.g. "P3F9A1C0". */
-    private static String uniqueCode() {
-        return "P" + UUID.randomUUID().toString().replace("-", "").substring(0, 7).toUpperCase();
     }
 }

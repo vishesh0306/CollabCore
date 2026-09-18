@@ -3,6 +3,7 @@ package com.collabflow.identity;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.collabflow.shared.error.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,11 @@ public class UserService {
     @Transactional(readOnly = true)
     public Optional<User> findByEmail(String email) {
         return userRepository.findByEmail(User.normalizeEmail(email));
+    }
+
+    @Transactional(readOnly = true)
+    public User getById(UUID userId) {
+        return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
     }
 
     @Transactional(readOnly = true)

@@ -93,16 +93,26 @@ public class ProjectService {
         return ProjectResponse.from(project);
     }
 
-    /** A completed project is read-only until a manager reopens it. */
-    private static void requireActive(Project project) {
+    /** A completed project (and its tasks) is read-only until a manager reopens it. */
+    public static void requireActive(Project project) {
         if (project.isCompleted()) {
             throw new ConflictException("This project is completed. Reopen it to make changes.");
         }
     }
 
-    /** 404 unless the caller may see the project's team, so outsiders can't tell it exists. */
-    private Project findVisibleProject(UUID projectId, UUID callerId) {
+    /** The project if the caller may see its team; otherwise 404, so outsiders can't tell it exists. */
+    public Project findVisibleProject(UUID projectId, UUID callerId) {
         return projectRepository.findById(projectId)
+                .filter(project -> teamAccess.canView(project.getTeam().getId(), callerId))
+                .orElseThrow(() -> new NotFoundException("Project not found"));
+    }
+
+    /**
+     * Like findVisibleProject, but also locks the project's row until the caller's transaction
+     * ends. Used when creating a task, so task numbers are handed out one at a time.
+     */
+    public Project findVisibleProjectForUpdate(UUID projectId, UUID callerId) {
+        return projectRepository.findForUpdateById(projectId)
                 .filter(project -> teamAccess.canView(project.getTeam().getId(), callerId))
                 .orElseThrow(() -> new NotFoundException("Project not found"));
     }

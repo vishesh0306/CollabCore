@@ -1,6 +1,9 @@
 package com.collabflow.team;
 
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import com.collabflow.identity.User;
@@ -67,6 +70,12 @@ public class TeamMemberService {
         return memberRepository.findByTeamIdAndUserId(teamId, userId)
                 .filter(member -> member.getRole() == TeamRole.MANAGER)
                 .map(TeamMember::getUser);
+    }
+
+    /** Of the given users, the ones who are members (any role) of the team. Used e.g. to check assignees. */
+    @Transactional(readOnly = true)
+    public Set<User> findMembers(UUID teamId, Collection<UUID> userIds) {
+        return new HashSet<>(memberRepository.findMemberUsers(teamId, userIds));
     }
 
     /** A registered user who can join a team. The admin oversees all teams but never joins one. */

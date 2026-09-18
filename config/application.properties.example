@@ -8,3 +8,9 @@
 # Required: secret used to sign login tokens, at least 32 characters.
 # Generate one with: openssl rand -base64 48
 collabflow.jwt.secret=
+
+# Required on the first start only: the admin account is created from these values.
+# Once it exists, the admin changes their email and password through the API.
+collabflow.admin.email=
+collabflow.admin.password=
+# collabflow.admin.name=Admin

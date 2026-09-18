@@ -67,9 +67,37 @@ public class ProjectService {
     @Transactional
     public ProjectResponse updateProject(UUID callerId, UUID projectId, UpdateProjectRequest request) {
         Project project = findManageableProject(projectId, callerId);
+        requireActive(project);
         User lead = findLead(project.getTeam().getId(), request.leadUserId());
         project.update(request.name(), request.description(), lead);
         return ProjectResponse.from(project);
+    }
+
+    @Transactional
+    public ProjectResponse completeProject(UUID callerId, UUID projectId) {
+        Project project = findManageableProject(projectId, callerId);
+        if (project.isCompleted()) {
+            throw new ConflictException("This project is already completed");
+        }
+        project.complete();
+        return ProjectResponse.from(project);
+    }
+
+    @Transactional
+    public ProjectResponse reopenProject(UUID callerId, UUID projectId) {
+        Project project = findManageableProject(projectId, callerId);
+        if (!project.isCompleted()) {
+            throw new ConflictException("This project is already active");
+        }
+        project.reopen();
+        return ProjectResponse.from(project);
+    }
+
+    /** A completed project is read-only until a manager reopens it. */
+    private static void requireActive(Project project) {
+        if (project.isCompleted()) {
+            throw new ConflictException("This project is completed. Reopen it to make changes.");
+        }
     }
 
     /** 404 unless the caller may see the project's team, so outsiders can't tell it exists. */

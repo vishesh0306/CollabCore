@@ -54,4 +54,14 @@ public class ProjectController {
                                          @Valid @RequestBody UpdateProjectRequest request) {
         return projectService.updateProject(CurrentUser.id(jwt), projectId, request);
     }
+
+    @PostMapping("/projects/{projectId}/complete")
+    public ProjectResponse completeProject(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
+        return projectService.completeProject(CurrentUser.id(jwt), projectId);
+    }
+
+    @PostMapping("/projects/{projectId}/reopen")
+    public ProjectResponse reopenProject(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId) {
+        return projectService.reopenProject(CurrentUser.id(jwt), projectId);
+    }
 }

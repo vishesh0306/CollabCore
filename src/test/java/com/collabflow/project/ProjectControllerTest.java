@@ -114,7 +114,60 @@ class ProjectControllerTest extends ApiTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void aCompletedProjectIsReadOnlyUntilReopened() throws Exception {
+        String projectId = createProjectAndGetId();
+
+        postAction(manager.token(), projectId, "complete")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("COMPLETED"));
+        updateProject(manager.token(), projectId, "Late change")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value("This project is completed. Reopen it to make changes."));
+
+        postAction(manager.token(), projectId, "reopen")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"));
+        updateProject(manager.token(), projectId, "Late change").andExpect(status().isOk());
+    }
+
+    @Test
+    void completingOrReopeningTwiceIsRejected() throws Exception {
+        String projectId = createProjectAndGetId();
+
+        postAction(manager.token(), projectId, "reopen").andExpect(status().isConflict());
+        postAction(manager.token(), projectId, "complete").andExpect(status().isOk());
+        postAction(manager.token(), projectId, "complete").andExpect(status().isConflict());
+    }
+
+    @Test
+    void membersCannotCompleteProjects() throws Exception {
+        String projectId = createProjectAndGetId();
+
+        postAction(member.token(), projectId, "complete").andExpect(status().isForbidden());
+    }
+
+    @Test
+    void theListCanBeFilteredByStatus() throws Exception {
+        String activeId = createProjectAndGetId();
+        String completedId = createProjectAndGetId();
+        postAction(manager.token(), completedId, "complete");
+
+        mockMvc.perform(get("/api/v1/teams/{teamId}/projects?status=COMPLETED", teamId)
+                        .header("Authorization", member.token()))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(completedId));
+        mockMvc.perform(get("/api/v1/teams/{teamId}/projects?status=ACTIVE", teamId)
+                        .header("Authorization", member.token()))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(activeId));
+    }
+
     // --- helpers ---
+
+    private ResultActions postAction(String token, String projectId, String action) throws Exception {
+        return mockMvc.perform(post("/api/v1/projects/{id}/" + action, projectId).header("Authorization", token));
+    }
 
     private ResultActions createProject(String token, UUID teamId, String code, UUID leadUserId) throws Exception {
         return mockMvc.perform(post("/api/v1/teams/{teamId}/projects", teamId)

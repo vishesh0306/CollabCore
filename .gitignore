@@ -37,3 +37,5 @@ docs/
 .env
 /config/*
 !/config/application.properties.example
+hs_err_pid*.log
+replay_pid*.log

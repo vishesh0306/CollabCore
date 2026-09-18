@@ -163,8 +163,8 @@ public class TaskService {
         return task;
     }
 
-    /** The task if the caller may see its team; otherwise 404. */
-    private Task findVisibleTask(String key, UUID callerId) {
+    /** The task if the caller may see its team; otherwise 404. Also used by other features (e.g. comments). */
+    public Task findVisibleTask(String key, UUID callerId) {
         return findByKey(key)
                 .filter(task -> teamAccess.canView(task.getTeamId(), callerId))
                 .orElseThrow(() -> new NotFoundException("Task not found"));

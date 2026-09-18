@@ -28,10 +28,22 @@ public class TeamAccess {
     private final TeamMemberRepository memberRepository;
     private final UserService userService;
 
+    /** May the caller see this team and everything in it? */
+    public boolean canView(UUID teamId, UUID callerId) {
+        return userService.isAdmin(callerId) || memberRepository.existsByTeamIdAndUserId(teamId, callerId);
+    }
+
+    /** May the caller manage this team and everything in it? */
+    public boolean canManage(UUID teamId, UUID callerId) {
+        return userService.isAdmin(callerId) || memberRepository.findByTeamIdAndUserId(teamId, callerId)
+                .map(member -> member.getRole() == TeamRole.MANAGER)
+                .orElse(false);
+    }
+
     /** Returns the team if the caller may see it; otherwise 404. */
     public Team requireVisible(UUID teamId, UUID callerId) {
         Team team = findTeam(teamId);
-        if (!userService.isAdmin(callerId) && !memberRepository.existsByTeamIdAndUserId(teamId, callerId)) {
+        if (!canView(teamId, callerId)) {
             throw teamNotFound();
         }
         return team;
@@ -39,14 +51,8 @@ public class TeamAccess {
 
     /** Returns the team if the caller may manage it; members get 403, outsiders 404. */
     public Team requireManager(UUID teamId, UUID callerId) {
-        Team team = findTeam(teamId);
-        if (userService.isAdmin(callerId)) {
-            return team;
-        }
-        TeamRole role = memberRepository.findByTeamIdAndUserId(teamId, callerId)
-                .map(TeamMember::getRole)
-                .orElseThrow(TeamAccess::teamNotFound);
-        if (role != TeamRole.MANAGER) {
+        Team team = requireVisible(teamId, callerId);
+        if (!canManage(teamId, callerId)) {
             throw new ForbiddenException("Only the team's managers can do this");
         }
         return team;

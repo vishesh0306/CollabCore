@@ -1,5 +1,6 @@
 package com.collabflow.team;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import com.collabflow.identity.User;
@@ -58,6 +59,14 @@ public class TeamMemberService {
             requireAnotherManager(teamId);
         }
         memberRepository.delete(member);
+    }
+
+    /** The user, if they are a manager of the team. Other features use this, e.g. to check a project lead. */
+    @Transactional(readOnly = true)
+    public Optional<User> findManager(UUID teamId, UUID userId) {
+        return memberRepository.findByTeamIdAndUserId(teamId, userId)
+                .filter(member -> member.getRole() == TeamRole.MANAGER)
+                .map(TeamMember::getUser);
     }
 
     /** A registered user who can join a team. The admin oversees all teams but never joins one. */

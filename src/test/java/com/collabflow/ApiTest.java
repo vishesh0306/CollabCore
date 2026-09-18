@@ -1,9 +1,11 @@
 package com.collabflow;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import java.util.UUID;
 
+import com.collabflow.identity.AdminProperties;
 import com.jayway.jsonpath.JsonPath;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,6 +29,9 @@ public abstract class ApiTest {
     @Autowired
     protected MockMvc mockMvc;
 
+    @Autowired
+    private AdminProperties adminProperties;
+
     protected ResultActions register(String name, String email, String password) throws Exception {
         return mockMvc.perform(post("/api/v1/auth/register")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -46,11 +51,32 @@ public abstract class ApiTest {
     /** Registers a new user and returns the value for their Authorization header. */
     protected String registerAndLogin(String email, String password) throws Exception {
         register("Test User", email, password);
-        String body = login(email, password).andReturn().getResponse().getContentAsString();
-        return "Bearer " + JsonPath.read(body, "$.accessToken");
+        return tokenFor(email, password);
+    }
+
+    /** A freshly registered user with a unique email, already logged in. */
+    protected TestUser newUser() throws Exception {
+        String email = uniqueEmail();
+        String token = registerAndLogin(email, "test-password");
+        String me = mockMvc.perform(get("/api/v1/me").header("Authorization", token))
+                .andReturn().getResponse().getContentAsString();
+        return new TestUser(UUID.fromString(JsonPath.read(me, "$.id")), email, token);
+    }
+
+    /** The Authorization header value for the admin created at startup. */
+    protected String adminToken() throws Exception {
+        return tokenFor(adminProperties.email(), adminProperties.password());
     }
 
     protected static String uniqueEmail() {
         return "user-" + UUID.randomUUID() + "@example.com";
+    }
+
+    private String tokenFor(String email, String password) throws Exception {
+        String body = login(email, password).andReturn().getResponse().getContentAsString();
+        return "Bearer " + JsonPath.read(body, "$.accessToken");
+    }
+
+    protected record TestUser(UUID id, String email, String token) {
     }
 }

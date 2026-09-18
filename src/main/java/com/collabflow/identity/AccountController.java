@@ -1,10 +1,9 @@
 package com.collabflow.identity;
 
-import java.util.UUID;
-
 import com.collabflow.identity.dto.ChangeEmailRequest;
 import com.collabflow.identity.dto.ChangePasswordRequest;
 import com.collabflow.identity.dto.UserResponse;
+import com.collabflow.shared.CurrentUser;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,24 +26,19 @@ public class AccountController {
 
     @GetMapping
     public UserResponse getMe(@AuthenticationPrincipal Jwt jwt) {
-        return UserResponse.from(accountService.getUser(userId(jwt)));
+        return UserResponse.from(accountService.getUser(CurrentUser.id(jwt)));
     }
 
     @PutMapping("/email")
     public UserResponse changeEmail(@AuthenticationPrincipal Jwt jwt,
                                     @Valid @RequestBody ChangeEmailRequest request) {
-        return UserResponse.from(accountService.changeEmail(userId(jwt), request));
+        return UserResponse.from(accountService.changeEmail(CurrentUser.id(jwt), request));
     }
 
     @PutMapping("/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void changePassword(@AuthenticationPrincipal Jwt jwt,
                                @Valid @RequestBody ChangePasswordRequest request) {
-        accountService.changePassword(userId(jwt), request);
-    }
-
-    /** The token's "subject" is the user's id (see TokenService). */
-    private static UUID userId(Jwt jwt) {
-        return UUID.fromString(jwt.getSubject());
+        accountService.changePassword(CurrentUser.id(jwt), request);
     }
 }

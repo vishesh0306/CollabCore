@@ -103,6 +103,18 @@ public abstract class ApiTest {
         return new TestProject(UUID.fromString(JsonPath.read(body, "$.id")), code);
     }
 
+    /** Creates a planned sprint in the team (as its manager) and returns its id. */
+    protected UUID createSprint(TestUser manager, UUID teamId) throws Exception {
+        String body = mockMvc.perform(post("/api/v1/teams/{teamId}/sprints", teamId)
+                        .header("Authorization", manager.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Sprint", "target": "Ship it", "startDate": "2026-10-01", "endDate": "2026-10-15"}
+                                """))
+                .andReturn().getResponse().getContentAsString();
+        return UUID.fromString(JsonPath.read(body, "$.id"));
+    }
+
     /** Project codes are unique across all tests in the shared database, e.g. "P3F9A1C0". */
     protected static String uniqueProjectCode() {
         return "P" + UUID.randomUUID().toString().replace("-", "").substring(0, 7).toUpperCase();

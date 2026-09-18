@@ -49,6 +49,8 @@ public class Project {
     @Enumerated(EnumType.STRING)
     private ProjectStatus status;
 
+    private int lastTaskNumber;
+
     @CreationTimestamp
     private Instant createdAt;
 
@@ -68,6 +70,16 @@ public class Project {
         this.name = name;
         this.description = description;
         this.lead = lead;
+    }
+
+    /**
+     * Hands out the next task number: 1, 2, 3...
+     * Only call this on a project loaded with a row lock (see ProjectRepository.findForUpdateById),
+     * otherwise two tasks created at the same moment could get the same number.
+     */
+    public int takeNextTaskNumber() {
+        lastTaskNumber++;
+        return lastTaskNumber;
     }
 
     public boolean isCompleted() {

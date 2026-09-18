@@ -11,6 +11,7 @@ import com.collabflow.identity.User;
 import com.collabflow.identity.UserService;
 import com.collabflow.project.Project;
 import com.collabflow.project.ProjectService;
+import com.collabflow.shared.PageResponse;
 import com.collabflow.shared.error.BadRequestException;
 import com.collabflow.shared.error.ForbiddenException;
 import com.collabflow.shared.error.NotFoundException;
@@ -22,6 +23,9 @@ import com.collabflow.task.dto.UpdateTaskRequest;
 import com.collabflow.team.TeamAccess;
 import com.collabflow.team.TeamMemberService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,6 +61,23 @@ public class TaskService {
     @Transactional(readOnly = true)
     public TaskResponse getTask(UUID callerId, String key) {
         return TaskResponse.from(findVisibleTask(key, callerId));
+    }
+
+    /** Fields the list can be sorted by. Anything else would be a 500 from the database layer. */
+    private static final Set<String> SORTABLE_FIELDS = Set.of("createdAt", "expectedDate", "title", "number");
+
+    /** A team's tasks, filtered and one page at a time. Newest first unless another sort is asked for. */
+    @Transactional(readOnly = true)
+    public PageResponse<TaskResponse> listTasks(UUID callerId, UUID teamId, TaskFilters filters, Pageable pageable) {
+        teamAccess.requireVisible(teamId, callerId);
+        for (Sort.Order order : pageable.getSort()) {
+            if (!SORTABLE_FIELDS.contains(order.getProperty())) {
+                throw new BadRequestException("Can't sort by '" + order.getProperty()
+                        + "'. Use one of: createdAt, expectedDate, title, number");
+            }
+        }
+        Page<Task> page = taskRepository.findAll(filters.toSpecification(teamId), pageable);
+        return PageResponse.from(page.map(TaskResponse::from));
     }
 
     @Transactional

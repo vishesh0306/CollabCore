@@ -3,6 +3,7 @@ package com.collabflow.task;
 import java.util.UUID;
 
 import com.collabflow.shared.CurrentUser;
+import com.collabflow.shared.PageResponse;
 import com.collabflow.task.dto.ChangeStatusRequest;
 import com.collabflow.task.dto.CreateTaskRequest;
 import com.collabflow.task.dto.ReplaceAssigneesRequest;
@@ -10,6 +11,10 @@ import com.collabflow.task.dto.TaskResponse;
 import com.collabflow.task.dto.UpdateTaskRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -36,6 +41,19 @@ public class TaskController {
     public TaskResponse createTask(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID projectId,
                                    @Valid @RequestBody CreateTaskRequest request) {
         return taskService.createTask(CurrentUser.id(jwt), projectId, request);
+    }
+
+    /**
+     * A team's tasks, e.g. ?projectId=...&status=IN_PROGRESS&page=0&size=20&sort=expectedDate,asc
+     * (@ParameterObject makes Swagger show each filter as its own query parameter.)
+     */
+    @GetMapping("/teams/{teamId}/tasks")
+    public PageResponse<TaskResponse> listTasks(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID teamId,
+            @ParameterObject TaskFilters filters,
+            @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable) {
+        return taskService.listTasks(CurrentUser.id(jwt), teamId, filters, pageable);
     }
 
     @GetMapping("/tasks/{key}")

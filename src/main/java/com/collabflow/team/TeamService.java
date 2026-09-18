@@ -5,7 +5,6 @@ import java.util.UUID;
 
 import com.collabflow.identity.User;
 import com.collabflow.identity.UserService;
-import com.collabflow.shared.error.BadRequestException;
 import com.collabflow.shared.error.ConflictException;
 import com.collabflow.team.dto.CreateTeamRequest;
 import com.collabflow.team.dto.TeamResponse;
@@ -31,6 +30,7 @@ public class TeamService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository memberRepository;
     private final TeamAccess teamAccess;
+    private final TeamMemberService memberService;
     private final UserService userService;
 
     @Transactional
@@ -39,7 +39,7 @@ public class TeamService {
         if (teamRepository.existsByNameIgnoreCase(request.name())) {
             throw new ConflictException("A team with this name already exists");
         }
-        User manager = findUserToAdd(request.managerEmail());
+        User manager = memberService.findUserToAdd(request.managerEmail());
 
         Team team = teamRepository.save(new Team(request.name(), request.description()));
         TeamMember firstManager = memberRepository.save(new TeamMember(team, manager, TeamRole.MANAGER));
@@ -74,15 +74,5 @@ public class TeamService {
         }
         team.update(request.name(), request.description());
         return TeamResponse.from(team, memberRepository.findMembersWithUser(teamId));
-    }
-
-    /** A registered user who can join a team. The admin oversees all teams but never joins one. */
-    User findUserToAdd(String email) {
-        User user = userService.findByEmail(email)
-                .orElseThrow(() -> new BadRequestException("No user is registered with the email " + email));
-        if (user.isAdmin()) {
-            throw new BadRequestException("The admin can't be added to a team");
-        }
-        return user;
     }
 }

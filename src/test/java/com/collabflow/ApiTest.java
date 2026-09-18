@@ -68,6 +68,28 @@ public abstract class ApiTest {
         return tokenFor(adminProperties.email(), adminProperties.password());
     }
 
+    /** Creates a team (as the admin) with this user as its manager, and returns the team's id. */
+    protected UUID createTeam(TestUser manager) throws Exception {
+        String body = mockMvc.perform(post("/api/v1/teams")
+                        .header("Authorization", adminToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name": "Team %s", "managerEmail": "%s"}
+                                """.formatted(UUID.randomUUID(), manager.email())))
+                .andReturn().getResponse().getContentAsString();
+        return UUID.fromString(JsonPath.read(body, "$.id"));
+    }
+
+    /** Adds a user to a team (as the admin) with the role "MANAGER" or "MEMBER". */
+    protected void addToTeam(UUID teamId, TestUser user, String role) throws Exception {
+        mockMvc.perform(post("/api/v1/teams/{teamId}/members", teamId)
+                .header("Authorization", adminToken())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"email": "%s", "role": "%s"}
+                        """.formatted(user.email(), role)));
+    }
+
     protected static String uniqueEmail() {
         return "user-" + UUID.randomUUID() + "@example.com";
     }

@@ -35,3 +35,5 @@ build/
 ### Project ###
 docs/
 .env
+/config/*
+!/config/application.properties.example

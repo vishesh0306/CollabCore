@@ -1,0 +1,10 @@
+# Copy this file to config/application.properties (git-ignored) and fill in the values.
+# Spring Boot reads ./config/application.properties automatically when you run the app.
+# Every value can also be set as an environment variable, e.g. COLLABFLOW_JWT_SECRET.
+
+# Optional: use another port if 8080 is taken.
+# server.port=8081
+
+# Required: secret used to sign login tokens, at least 32 characters.
+# Generate one with: openssl rand -base64 48
+collabflow.jwt.secret=

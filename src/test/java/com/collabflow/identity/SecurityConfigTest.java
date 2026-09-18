@@ -34,7 +34,13 @@ class SecurityConfigTest {
     }
 
     @Test
-    void everythingElseNeedsLogin() throws Exception {
-        mockMvc.perform(get("/api/v1/teams")).andExpect(status().isForbidden());
+    void requestsWithoutATokenAreRejected() throws Exception {
+        mockMvc.perform(get("/api/v1/me")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void requestsWithAFakeTokenAreRejected() throws Exception {
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer not.a.real-token"))
+                .andExpect(status().isUnauthorized());
     }
 }

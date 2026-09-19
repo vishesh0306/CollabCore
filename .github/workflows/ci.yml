@@ -1,11 +1,10 @@
-# Builds the project and runs every test on each push to main and on each pull request.
+# Builds the project and runs every test on each push, whatever the branch, so work in
+# progress gets the same checks as main. Pull requests show these same results, because
+# they run on the branch's commits.
 # The tests start a real PostgreSQL through Testcontainers, which uses the runner's Docker.
 name: CI
 
-on:
-  push:
-    branches: [main]
-  pull_request:
+on: push
 
 # A newer push to the same branch cancels the run that is still going for the older one.
 concurrency:

@@ -27,6 +27,10 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, UUID> {
     @Query("select m from TeamMember m join fetch m.user where m.team.id = :teamId order by m.role, m.user.name")
     List<TeamMember> findMembersWithUser(@Param("teamId") UUID teamId);
 
+    /** Just the ids of everyone in the team, e.g. to notify them all. */
+    @Query("select m.user.id from TeamMember m where m.team.id = :teamId")
+    List<UUID> findMemberIds(@Param("teamId") UUID teamId);
+
     /** Of the given users, the ones who are members (any role) of the team. */
     @Query("select m.user from TeamMember m where m.team.id = :teamId and m.user.id in :userIds")
     List<User> findMemberUsers(@Param("teamId") UUID teamId, @Param("userIds") Collection<UUID> userIds);

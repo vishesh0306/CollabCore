@@ -39,7 +39,10 @@ public class TeamMemberService {
             throw new ConflictException(user.getEmail() + " is already in this team");
         }
         try {
-            return MemberResponse.from(memberRepository.saveAndFlush(new TeamMember(team, user, request.role())));
+            MemberResponse member = MemberResponse.from(
+                    memberRepository.saveAndFlush(new TeamMember(team, user, request.role())));
+            events.publishEvent(new TeamMemberAddedEvent(teamId, team.getName(), callerId, user.getId()));
+            return member;
         } catch (DataIntegrityViolationException e) {
             // Someone added the same person at the same moment; the unique (team, user) rule stopped it.
             throw new ConflictException(user.getEmail() + " is already in this team");
@@ -81,6 +84,12 @@ public class TeamMemberService {
     @Transactional(readOnly = true)
     public List<User> findMembers(UUID teamId) {
         return memberRepository.findMembersWithUser(teamId).stream().map(TeamMember::getUser).toList();
+    }
+
+    /** The ids of everyone in the team, e.g. to notify them all. */
+    @Transactional(readOnly = true)
+    public Set<UUID> findMemberIds(UUID teamId) {
+        return new HashSet<>(memberRepository.findMemberIds(teamId));
     }
 
     /** Of the given users, the ones who are members (any role) of the team. Used e.g. to check assignees. */

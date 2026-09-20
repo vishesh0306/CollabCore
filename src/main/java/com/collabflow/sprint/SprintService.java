@@ -83,6 +83,7 @@ public class SprintService {
         } catch (DataIntegrityViolationException e) {
             throw anotherSprintIsActive();
         }
+        events.publishEvent(new SprintStartedEvent(sprint.getId(), teamId, sprint.getName(), callerId));
         return SprintResponse.from(sprint);
     }
 

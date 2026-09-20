@@ -11,6 +11,7 @@ import com.collabflow.team.dto.TeamResponse;
 import com.collabflow.team.dto.TeamSummaryResponse;
 import com.collabflow.team.dto.UpdateTeamRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,7 @@ public class TeamService {
     private final TeamAccess teamAccess;
     private final TeamMemberService memberService;
     private final UserService userService;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public TeamResponse createTeam(UUID callerId, CreateTeamRequest request) {
@@ -44,6 +46,7 @@ public class TeamService {
 
         Team team = teamRepository.save(new Team(request.name(), request.description()));
         TeamMember firstManager = memberRepository.save(new TeamMember(team, manager, TeamRole.MANAGER));
+        events.publishEvent(new TeamMemberAddedEvent(team.getId(), team.getName(), callerId, manager.getId()));
         // Run both INSERTs now. The @CreationTimestamp values are only filled in when the INSERT
         // runs, so without this the response would show createdAt and joinedAt as null.
         flushOrConflict();

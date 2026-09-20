@@ -1,11 +1,13 @@
 package com.collabflow.task;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.collabflow.identity.User;
 import com.collabflow.identity.UserService;
@@ -28,6 +30,7 @@ import com.collabflow.task.dto.UpdateTaskRequest;
 import com.collabflow.team.TeamAccess;
 import com.collabflow.team.TeamMemberService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -48,6 +51,7 @@ public class TaskService {
     private final TeamAccess teamAccess;
     private final TeamMemberService teamMemberService;
     private final UserService userService;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public TaskResponse createTask(UUID callerId, UUID projectId, CreateTaskRequest request) {
@@ -61,6 +65,10 @@ public class TaskService {
         Task task = new Task(project, project.takeNextTaskNumber(), request.title(), request.description(),
                 request.expectedDate(), creator, assignees);
         taskRepository.saveAndFlush(task);
+        if (!assignees.isEmpty()) {
+            events.publishEvent(new TaskEvents.AssigneesChanged(task.getKey(), task.getTitle(), callerId,
+                    idsOf(assignees), Set.of()));
+        }
         return TaskResponse.from(task);
     }
 
@@ -111,6 +119,10 @@ public class TaskService {
         return TaskResponse.from(task);
     }
 
+    private static Set<UUID> idsOf(Collection<User> users) {
+        return users.stream().map(User::getId).collect(Collectors.toSet());
+    }
+
     private PageResponse<TaskResponse> findPage(UUID teamId, TaskFilters filters, Pageable pageable) {
         for (Sort.Order order : pageable.getSort()) {
             if (!SORTABLE_FIELDS.contains(order.getProperty())) {
@@ -132,21 +144,40 @@ public class TaskService {
     @Transactional
     public TaskResponse changeStatus(UUID callerId, String key, ChangeStatusRequest request) {
         Task task = findChangeableTask(key, callerId);
+        TaskStatus previous = task.getStatus();
         task.changeStatus(request.status());
+        if (previous != request.status()) {
+            events.publishEvent(new TaskEvents.StatusChanged(task.getKey(), task.getTitle(), callerId,
+                    previous, request.status(), task.participantIds()));
+        }
         return TaskResponse.from(task);
     }
 
     @Transactional
     public TaskResponse replaceAssignees(UUID callerId, String key, ReplaceAssigneesRequest request) {
         Task task = findChangeableTask(key, callerId);
+        Set<UUID> before = idsOf(task.getAssignees());
         task.replaceAssignees(findAssignees(task.getTeamId(), request.assigneeIds()));
+        Set<UUID> after = idsOf(task.getAssignees());
+
+        Set<UUID> added = new HashSet<>(after);
+        added.removeAll(before);
+        Set<UUID> removed = new HashSet<>(before);
+        removed.removeAll(after);
+        if (!added.isEmpty() || !removed.isEmpty()) {
+            events.publishEvent(new TaskEvents.AssigneesChanged(task.getKey(), task.getTitle(), callerId,
+                    added, removed));
+        }
         return TaskResponse.from(task);
     }
 
     /** Soft delete: the row stays (and keeps its number), but the task is hidden from now on. */
     @Transactional
     public void deleteTask(UUID callerId, String key) {
-        findChangeableTask(key, callerId).delete();
+        Task task = findChangeableTask(key, callerId);
+        task.delete();
+        events.publishEvent(new TaskEvents.Deleted(task.getKey(), task.getTitle(), callerId,
+                task.participantIds()));
     }
 
     /**

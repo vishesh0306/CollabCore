@@ -114,6 +114,14 @@ public class Task {
                 || assignees.stream().anyMatch(user -> user.getId().equals(userId));
     }
 
+    /** Everyone who cares about this task: whoever created it, and whoever it is assigned to. */
+    public Set<UUID> participantIds() {
+        Set<UUID> ids = new HashSet<>();
+        ids.add(createdBy.getId());
+        assignees.forEach(user -> ids.add(user.getId()));
+        return ids;
+    }
+
     public void updateDetails(String title, String description, LocalDate expectedDate) {
         this.title = title;
         this.description = description;

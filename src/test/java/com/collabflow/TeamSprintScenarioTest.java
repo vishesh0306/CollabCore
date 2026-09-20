@@ -66,7 +66,7 @@ class TeamSprintScenarioTest extends ApiTest {
                 .andExpect(status().isCreated());
 
         // Everyone in the team sees the sprint's progress, per project.
-        call(vikram, get("/api/v1/sprints/{id}/tasks", sprint), null)
+        call(vikram, get("/api/v1/sprints/{id}/page", sprint), null)
                 .andExpect(jsonPath("$.done").value(1))
                 .andExpect(jsonPath("$.total").value(3))
                 .andExpect(jsonPath("$.projects.length()").value(2));
@@ -78,11 +78,11 @@ class TeamSprintScenarioTest extends ApiTest {
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
 
         // The finished sprint still shows everything that was in it, done or not...
-        call(rahul, get("/api/v1/sprints/{id}/tasks", sprint), null)
+        call(rahul, get("/api/v1/sprints/{id}/page", sprint), null)
                 .andExpect(jsonPath("$.projects[*].tasks[*].key", containsInAnyOrder(refunds, payouts, ranking)))
                 .andExpect(jsonPath("$.done").value(1));
         // ...and the unfinished work continues in the next one.
-        call(rahul, get("/api/v1/sprints/{id}/tasks", nextSprint), null)
+        call(rahul, get("/api/v1/sprints/{id}/page", nextSprint), null)
                 .andExpect(jsonPath("$.projects[*].tasks[*].key", containsInAnyOrder(payouts, ranking)));
         // The task nobody put in a sprint is still the only thing in its backlog.
         call(rahul, get("/api/v1/projects/{id}/backlog", search.id()), null)

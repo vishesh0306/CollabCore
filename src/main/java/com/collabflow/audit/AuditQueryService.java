@@ -15,6 +15,9 @@ import com.collabflow.project.Project;
 import com.collabflow.project.ProjectService;
 import com.collabflow.shared.error.BadRequestException;
 import com.collabflow.shared.error.NotFoundException;
+import com.collabflow.sprint.Sprint;
+import com.collabflow.sprint.SprintService;
+import com.collabflow.task.TaskService;
 import com.collabflow.team.TeamAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -36,6 +39,8 @@ public class AuditQueryService {
     private final UserService userService;
     private final TeamAccess teamAccess;
     private final ProjectService projectService;
+    private final SprintService sprintService;
+    private final TaskService taskService;
 
     /**
      * TSK-8: one task's full history, newest first, including its comments. Not paged: a task
@@ -66,6 +71,22 @@ public class AuditQueryService {
     public AuditPage projectActivity(UUID callerId, UUID projectId, Long before, Integer size) {
         Project project = projectService.findVisibleProject(projectId, callerId);
         return page(AuditFilters.forProject(project.getId(), before), size);
+    }
+
+    /**
+     * A sprint's timeline (SPR-6): the sprint's own entries and everything that happened to the
+     * tasks tagged into it, newest first. Tasks tagged in later bring their whole history with
+     * them, which is the honest answer to "what went on in this sprint".
+     */
+    @Transactional(readOnly = true)
+    public AuditPage sprintTimeline(UUID callerId, UUID sprintId, Long before, Integer size) {
+        Sprint sprint = sprintService.findVisibleSprint(sprintId, callerId);
+        List<String> taskKeys = taskService.taskKeysInSprint(sprint.getId());
+        int limit = pageSize(size);
+        List<AuditEntry> entries = auditRepository.findBy(
+                AuditFilters.forSprint(sprint.getId(), taskKeys, before),
+                query -> query.sortBy(Sort.by(Sort.Direction.DESC, "id")).limit(limit).all());
+        return AuditPage.of(describe(entries), limit);
     }
 
     /** The admin's company-wide log, with every filter optional. */

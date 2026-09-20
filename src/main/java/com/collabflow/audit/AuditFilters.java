@@ -28,6 +28,25 @@ record AuditFilters(UUID teamId,
                     Instant to,
                     Long before) {
 
+    /**
+     * A sprint's timeline: what happened to the sprint itself, plus everything about the tasks
+     * tagged into it. Tasks and their comments are both labelled with the task's key, so one
+     * condition on the label covers both.
+     */
+    static Specification<AuditEntry> forSprint(UUID sprintId, List<String> taskKeys, Long before) {
+        return (root, query, builder) -> {
+            Predicate aboutTheSprint = builder.and(
+                    builder.equal(root.get("entityType"), AuditEntityType.SPRINT),
+                    builder.equal(root.get("entityId"), sprintId));
+            Predicate timeline = taskKeys.isEmpty()
+                    ? aboutTheSprint
+                    : builder.or(aboutTheSprint, root.get("entityLabel").in(taskKeys));
+            return before == null
+                    ? timeline
+                    : builder.and(timeline, builder.lessThan(root.get("id"), before));
+        };
+    }
+
     static AuditFilters forTeam(UUID teamId, Long before) {
         return new AuditFilters(teamId, null, null, null, null, null, null, null, before);
     }

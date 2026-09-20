@@ -26,7 +26,7 @@ import com.collabflow.shared.error.NotFoundException;
 import com.collabflow.task.dto.ChangeStatusRequest;
 import com.collabflow.task.dto.CreateTaskRequest;
 import com.collabflow.task.dto.ReplaceAssigneesRequest;
-import com.collabflow.task.dto.SprintTasksResponse;
+import com.collabflow.task.dto.SprintPageResponse;
 import com.collabflow.task.dto.TaskResponse;
 import com.collabflow.task.dto.UpdateTaskRequest;
 import com.collabflow.team.TeamAccess;
@@ -107,11 +107,21 @@ public class TaskService {
         return findPage(project.getTeam().getId(), backlogOnly, pageable);
     }
 
-    /** A sprint's tasks grouped by project, with done/total counts. */
+    /** The sprint page: the sprint itself, and its tasks grouped by project with progress. */
     @Transactional(readOnly = true)
-    public SprintTasksResponse getSprintTasks(UUID callerId, UUID sprintId) {
+    public SprintPageResponse getSprintPage(UUID callerId, UUID sprintId) {
         Sprint sprint = sprintService.findVisibleSprint(sprintId, callerId);
-        return SprintTasksResponse.from(sprint.getId(), taskRepository.findInSprint(sprintId));
+        return SprintPageResponse.from(sprint, taskRepository.findInSprint(sprintId));
+    }
+
+    /**
+     * The keys of the tasks tagged into a sprint. The audit log uses these to gather the
+     * sprint's timeline, because every entry about a task (or a comment on one) is labelled
+     * with the task's key.
+     */
+    @Transactional(readOnly = true)
+    public List<String> taskKeysInSprint(UUID sprintId) {
+        return taskRepository.findInSprint(sprintId).stream().map(Task::getKey).toList();
     }
 
     /**

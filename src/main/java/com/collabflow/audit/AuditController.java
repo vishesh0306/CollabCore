@@ -52,6 +52,15 @@ public class AuditController {
         return auditQueryService.projectActivity(CurrentUser.id(jwt), projectId, before, size);
     }
 
+    /** A sprint's timeline: the sprint and everything about the tasks tagged into it. */
+    @GetMapping("/sprints/{sprintId}/timeline")
+    public AuditPage sprintTimeline(@AuthenticationPrincipal Jwt jwt,
+                                    @PathVariable UUID sprintId,
+                                    @RequestParam(required = false) Long before,
+                                    @RequestParam(required = false) Integer size) {
+        return auditQueryService.sprintTimeline(CurrentUser.id(jwt), sprintId, before, size);
+    }
+
     /**
      * The whole company's log, for the admin only. Every filter is optional, e.g.
      * {@code /audit?entityType=TASK&action=DELETED&from=2026-10-01T00:00:00Z}.

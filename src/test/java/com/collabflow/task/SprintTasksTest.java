@@ -169,6 +169,27 @@ class SprintTasksTest extends ApiTest {
     }
 
     @Test
+    void theSprintPageShowsWhatTheSprintIsForAndHowLongIsLeft() throws Exception {
+        sprintTasks(sprintId)
+                .andExpect(jsonPath("$.name").value("Sprint"))
+                .andExpect(jsonPath("$.target").value("Ship it"))
+                .andExpect(jsonPath("$.startDate").value("2026-10-01"))
+                .andExpect(jsonPath("$.endDate").value("2026-10-15"))
+                .andExpect(jsonPath("$.status").value("PLANNED"))
+                .andExpect(jsonPath("$.daysLeft").isNumber());
+    }
+
+    @Test
+    void aFinishedSprintHasNoDaysLeft() throws Exception {
+        sprintAction("start");
+        complete(null);
+
+        sprintTasks(sprintId)
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.daysLeft").doesNotExist());
+    }
+
+    @Test
     void theTaskListCanBeFilteredBySprintOrBacklog() throws Exception {
         String inSprint = createTask(member, payments);
         String inBacklog = createTask(member, search);
@@ -204,7 +225,7 @@ class SprintTasksTest extends ApiTest {
     }
 
     private ResultActions sprintTasks(UUID sprint) throws Exception {
-        return mockMvc.perform(get("/api/v1/sprints/{id}/tasks", sprint)
+        return mockMvc.perform(get("/api/v1/sprints/{id}/page", sprint)
                         .header("Authorization", otherMember.token()))
                 .andExpect(status().isOk());
     }

@@ -7,7 +7,7 @@ import com.collabflow.shared.PageResponse;
 import com.collabflow.task.dto.ChangeStatusRequest;
 import com.collabflow.task.dto.CreateTaskRequest;
 import com.collabflow.task.dto.ReplaceAssigneesRequest;
-import com.collabflow.task.dto.SprintTasksResponse;
+import com.collabflow.task.dto.SprintPageResponse;
 import com.collabflow.task.dto.TaskResponse;
 import com.collabflow.task.dto.UpdateTaskRequest;
 import jakarta.validation.Valid;
@@ -65,10 +65,13 @@ public class TaskController {
         return taskService.getBacklog(CurrentUser.id(jwt), projectId, pageable);
     }
 
-    /** A sprint's tasks grouped by project, with done/total counts. */
-    @GetMapping("/sprints/{sprintId}/tasks")
-    public SprintTasksResponse getSprintTasks(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID sprintId) {
-        return taskService.getSprintTasks(CurrentUser.id(jwt), sprintId);
+    /**
+     * The sprint page: target and dates, days left, and every task tagged into the sprint,
+     * grouped by project with progress. Its timeline is a separate, paged call.
+     */
+    @GetMapping("/sprints/{sprintId}/page")
+    public SprintPageResponse getSprintPage(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID sprintId) {
+        return taskService.getSprintPage(CurrentUser.id(jwt), sprintId);
     }
 
     /** Tags a task into a sprint. It keeps any sprint tags it already has. */

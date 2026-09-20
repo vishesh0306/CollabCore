@@ -2,6 +2,7 @@ package com.collabflow.team;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -74,6 +75,12 @@ public class TeamMemberService {
         return memberRepository.findByTeamIdAndUserId(teamId, userId)
                 .filter(member -> member.getRole() == TeamRole.MANAGER)
                 .map(TeamMember::getUser);
+    }
+
+    /** Everyone in the team, e.g. to work out who an @mention refers to. */
+    @Transactional(readOnly = true)
+    public List<User> findMembers(UUID teamId) {
+        return memberRepository.findMembersWithUser(teamId).stream().map(TeamMember::getUser).toList();
     }
 
     /** Of the given users, the ones who are members (any role) of the team. Used e.g. to check assignees. */

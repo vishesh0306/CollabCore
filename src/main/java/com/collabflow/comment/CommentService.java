@@ -1,5 +1,6 @@
 package com.collabflow.comment;
 
+import java.util.Set;
 import java.util.UUID;
 
 import com.collabflow.comment.dto.CommentRequest;
@@ -13,7 +14,9 @@ import com.collabflow.shared.error.NotFoundException;
 import com.collabflow.task.Task;
 import com.collabflow.task.TaskService;
 import com.collabflow.team.TeamAccess;
+import com.collabflow.team.TeamMemberService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -33,6 +36,8 @@ public class CommentService {
     private final TaskService taskService;
     private final TeamAccess teamAccess;
     private final UserService userService;
+    private final TeamMemberService teamMemberService;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public CommentResponse addComment(UUID callerId, String taskKey, CommentRequest request) {
@@ -41,6 +46,10 @@ public class CommentService {
         User author = userService.getById(callerId);
 
         Comment comment = commentRepository.saveAndFlush(new Comment(task, author, request.body()));
+
+        Set<UUID> mentioned = Mentions.findIn(request.body(), teamMemberService.findMembers(task.getTeamId()));
+        events.publishEvent(new CommentEvents.Added(task.getKey(), task.getTitle(), callerId,
+                task.participantIds(), mentioned));
         return CommentResponse.from(comment);
     }
 

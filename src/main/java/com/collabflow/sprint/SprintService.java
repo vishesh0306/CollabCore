@@ -1,9 +1,12 @@
 package com.collabflow.sprint;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
+import com.collabflow.shared.FieldChange;
 import com.collabflow.shared.error.BadRequestException;
 import com.collabflow.shared.error.ConflictException;
 import com.collabflow.shared.error.ForbiddenException;
@@ -36,6 +39,10 @@ public class SprintService {
         requireValidDates(request.startDate(), request.endDate());
         Sprint sprint = sprintRepository.saveAndFlush(
                 new Sprint(team, request.name(), request.target(), request.startDate(), request.endDate()));
+        events.publishEvent(new SprintEvents.Created(sprint.getId(), teamId, sprint.getName(), callerId,
+                List.of(FieldChange.set("target", sprint.getTarget()),
+                        FieldChange.set("startDate", sprint.getStartDate()),
+                        FieldChange.set("endDate", sprint.getEndDate()))));
         return SprintResponse.from(sprint);
     }
 
@@ -61,7 +68,17 @@ public class SprintService {
             throw new ConflictException("A completed sprint can't be changed");
         }
         requireValidDates(request.startDate(), request.endDate());
+        List<FieldChange> changes = new ArrayList<>();
+        addIfChanged(changes, "name", sprint.getName(), request.name());
+        addIfChanged(changes, "target", sprint.getTarget(), request.target());
+        addIfChanged(changes, "startDate", sprint.getStartDate(), request.startDate());
+        addIfChanged(changes, "endDate", sprint.getEndDate(), request.endDate());
+
         sprint.update(request.name(), request.target(), request.startDate(), request.endDate());
+        if (!changes.isEmpty()) {
+            events.publishEvent(new SprintEvents.Updated(sprint.getId(), sprint.getTeam().getId(),
+                    sprint.getName(), callerId, changes));
+        }
         return SprintResponse.from(sprint);
     }
 
@@ -95,7 +112,8 @@ public class SprintService {
         }
         sprint.complete();
         // Listeners (e.g. tasks) react right away, inside this same transaction.
-        events.publishEvent(new SprintCompletedEvent(sprint.getId(), sprint.getTeam().getId()));
+        events.publishEvent(new SprintCompletedEvent(sprint.getId(), sprint.getTeam().getId(),
+                sprint.getName(), callerId));
         return SprintResponse.from(sprint);
     }
 
@@ -123,6 +141,12 @@ public class SprintService {
             throw new ForbiddenException("Only the team's managers can do this");
         }
         return sprint;
+    }
+
+    private static void addIfChanged(List<FieldChange> changes, String field, Object before, Object after) {
+        if (!Objects.equals(before, after)) {
+            changes.add(FieldChange.of(field, before, after));
+        }
     }
 
     private static void requireValidDates(LocalDate startDate, LocalDate endDate) {

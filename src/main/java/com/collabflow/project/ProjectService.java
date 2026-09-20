@@ -1,12 +1,15 @@
 package com.collabflow.project;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import com.collabflow.identity.User;
 import com.collabflow.project.dto.CreateProjectRequest;
 import com.collabflow.project.dto.ProjectResponse;
 import com.collabflow.project.dto.UpdateProjectRequest;
+import com.collabflow.shared.FieldChange;
 import com.collabflow.shared.error.BadRequestException;
 import com.collabflow.shared.error.ConflictException;
 import com.collabflow.shared.error.ForbiddenException;
@@ -15,6 +18,7 @@ import com.collabflow.team.Team;
 import com.collabflow.team.TeamAccess;
 import com.collabflow.team.TeamMemberService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +34,7 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final TeamAccess teamAccess;
     private final TeamMemberService teamMemberService;
+    private final ApplicationEventPublisher events;
 
     @Transactional
     public ProjectResponse createProject(UUID callerId, UUID teamId, CreateProjectRequest request) {
@@ -46,6 +51,9 @@ public class ProjectService {
         } catch (DataIntegrityViolationException e) {
             throw codeTaken(request.code());
         }
+        events.publishEvent(new ProjectEvents.Created(project.getId(), teamId, project.getCode(), callerId,
+                List.of(FieldChange.set("name", project.getName()),
+                        FieldChange.set("lead", lead.getName()))));
         return ProjectResponse.from(project);
     }
 
@@ -69,7 +77,16 @@ public class ProjectService {
         Project project = findManageableProject(projectId, callerId);
         requireActive(project);
         User lead = findLead(project.getTeam().getId(), request.leadUserId());
+        List<FieldChange> changes = new ArrayList<>();
+        addIfChanged(changes, "name", project.getName(), request.name());
+        addIfChanged(changes, "description", project.getDescription(), request.description());
+        addIfChanged(changes, "lead", project.getLead().getName(), lead.getName());
+
         project.update(request.name(), request.description(), lead);
+        if (!changes.isEmpty()) {
+            events.publishEvent(new ProjectEvents.Updated(project.getId(), project.getTeam().getId(),
+                    project.getCode(), callerId, changes));
+        }
         return ProjectResponse.from(project);
     }
 
@@ -80,6 +97,8 @@ public class ProjectService {
             throw new ConflictException("This project is already completed");
         }
         project.complete();
+        events.publishEvent(new ProjectEvents.Completed(project.getId(), project.getTeam().getId(),
+                project.getCode(), callerId));
         return ProjectResponse.from(project);
     }
 
@@ -90,7 +109,15 @@ public class ProjectService {
             throw new ConflictException("This project is already active");
         }
         project.reopen();
+        events.publishEvent(new ProjectEvents.Reopened(project.getId(), project.getTeam().getId(),
+                project.getCode(), callerId));
         return ProjectResponse.from(project);
+    }
+
+    private static void addIfChanged(List<FieldChange> changes, String field, Object before, Object after) {
+        if (!Objects.equals(before, after)) {
+            changes.add(FieldChange.of(field, before, after));
+        }
     }
 
     /** A completed project (and its tasks) is read-only until a manager reopens it. */

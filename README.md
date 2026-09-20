@@ -68,15 +68,23 @@ Fill in `collabflow.jwt.secret` (at least 32 characters; e.g. `openssl rand -bas
 
 ```bash
 docker compose up -d        # start PostgreSQL
-./mvnw spring-boot:run      # start the app on http://localhost:8080
+./scripts/app.sh start      # build if needed, then start the app
+./scripts/app.sh status     # is it up, and which process is it?
+./scripts/app.sh stop       # stop whatever holds the port
 ```
+
+The script finds a JDK 21 even when `JAVA_HOME` points at an older one, refuses to start a
+second copy, and logs to `target/app.log`. `./mvnw spring-boot:run` works too, but it forks a
+second JVM: stopping Maven can leave the app running and holding the port, and a stray old
+build answering requests looks exactly like a working new one.
 
 On the first start, the admin account is created from your settings.
 
 - API docs (Swagger UI): http://localhost:8080/swagger-ui/index.html
 - Health check: http://localhost:8080/actuator/health
 
-Port 8080 already taken? Add `server.port=8081` to `config/application.properties`.
+Port 8080 already taken? Add `server.port=8081` to `config/application.properties`
+(the script reads `SERVER_PORT`, defaulting to 8081).
 
 Stop the database with `docker compose down` (add `-v` to also delete its data).
 

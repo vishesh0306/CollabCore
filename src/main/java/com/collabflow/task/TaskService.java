@@ -1,9 +1,11 @@
 package com.collabflow.task;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -13,6 +15,7 @@ import com.collabflow.identity.User;
 import com.collabflow.identity.UserService;
 import com.collabflow.project.Project;
 import com.collabflow.project.ProjectService;
+import com.collabflow.shared.FieldChange;
 import com.collabflow.shared.PageResponse;
 import com.collabflow.sprint.Sprint;
 import com.collabflow.sprint.SprintService;
@@ -65,9 +68,20 @@ public class TaskService {
         Task task = new Task(project, project.takeNextTaskNumber(), request.title(), request.description(),
                 request.expectedDate(), creator, assignees);
         taskRepository.saveAndFlush(task);
+
+        List<FieldChange> initial = new ArrayList<>();
+        initial.add(FieldChange.set("title", task.getTitle()));
+        if (task.getDescription() != null) {
+            initial.add(FieldChange.set("description", task.getDescription()));
+        }
+        if (task.getExpectedDate() != null) {
+            initial.add(FieldChange.set("expectedDate", task.getExpectedDate()));
+        }
+        events.publishEvent(new TaskEvents.Created(task.getId(), task.getTeamId(), task.getKey(),
+                task.getTitle(), callerId, initial));
         if (!assignees.isEmpty()) {
-            events.publishEvent(new TaskEvents.AssigneesChanged(task.getKey(), task.getTitle(), callerId,
-                    idsOf(assignees), Set.of()));
+            events.publishEvent(new TaskEvents.AssigneesChanged(task.getId(), task.getTeamId(), task.getKey(),
+                    task.getTitle(), callerId, idsOf(assignees), Set.of()));
         }
         return TaskResponse.from(task);
     }
@@ -115,8 +129,19 @@ public class TaskService {
         Sprint sprint = request.sprintId() == null
                 ? null
                 : sprintService.findOpenSprintOfTeam(request.sprintId(), task.getTeamId());
+        String from = sprintName(task.getSprint());
+        String to = sprintName(sprint);
         task.moveToSprint(sprint);
+        if (!from.equals(to)) {
+            events.publishEvent(new TaskEvents.MovedToSprint(task.getId(), task.getTeamId(), task.getKey(),
+                    callerId, from, to));
+        }
         return TaskResponse.from(task);
+    }
+
+    /** How the log should name where a task sits. */
+    private static String sprintName(Sprint sprint) {
+        return sprint == null ? "Backlog" : sprint.getName();
     }
 
     private static Set<UUID> idsOf(Collection<User> users) {
@@ -137,8 +162,23 @@ public class TaskService {
     @Transactional
     public TaskResponse updateDetails(UUID callerId, String key, UpdateTaskRequest request) {
         Task task = findChangeableTask(key, callerId);
+        List<FieldChange> changes = new ArrayList<>();
+        addIfChanged(changes, "title", task.getTitle(), request.title());
+        addIfChanged(changes, "description", task.getDescription(), request.description());
+        addIfChanged(changes, "expectedDate", task.getExpectedDate(), request.expectedDate());
+
         task.updateDetails(request.title(), request.description(), request.expectedDate());
+        if (!changes.isEmpty()) {
+            events.publishEvent(new TaskEvents.DetailsUpdated(task.getId(), task.getTeamId(), task.getKey(),
+                    callerId, changes));
+        }
         return TaskResponse.from(task);
+    }
+
+    private static void addIfChanged(List<FieldChange> changes, String field, Object before, Object after) {
+        if (!Objects.equals(before, after)) {
+            changes.add(FieldChange.of(field, before, after));
+        }
     }
 
     @Transactional
@@ -147,8 +187,8 @@ public class TaskService {
         TaskStatus previous = task.getStatus();
         task.changeStatus(request.status());
         if (previous != request.status()) {
-            events.publishEvent(new TaskEvents.StatusChanged(task.getKey(), task.getTitle(), callerId,
-                    previous, request.status(), task.participantIds()));
+            events.publishEvent(new TaskEvents.StatusChanged(task.getId(), task.getTeamId(), task.getKey(),
+                    task.getTitle(), callerId, previous, request.status(), task.participantIds()));
         }
         return TaskResponse.from(task);
     }
@@ -165,8 +205,8 @@ public class TaskService {
         Set<UUID> removed = new HashSet<>(before);
         removed.removeAll(after);
         if (!added.isEmpty() || !removed.isEmpty()) {
-            events.publishEvent(new TaskEvents.AssigneesChanged(task.getKey(), task.getTitle(), callerId,
-                    added, removed));
+            events.publishEvent(new TaskEvents.AssigneesChanged(task.getId(), task.getTeamId(), task.getKey(),
+                    task.getTitle(), callerId, added, removed));
         }
         return TaskResponse.from(task);
     }
@@ -176,8 +216,8 @@ public class TaskService {
     public void deleteTask(UUID callerId, String key) {
         Task task = findChangeableTask(key, callerId);
         task.delete();
-        events.publishEvent(new TaskEvents.Deleted(task.getKey(), task.getTitle(), callerId,
-                task.participantIds()));
+        events.publishEvent(new TaskEvents.Deleted(task.getId(), task.getTeamId(), task.getKey(),
+                task.getTitle(), callerId, task.participantIds()));
     }
 
     /**

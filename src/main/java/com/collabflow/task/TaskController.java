@@ -6,7 +6,6 @@ import com.collabflow.shared.CurrentUser;
 import com.collabflow.shared.PageResponse;
 import com.collabflow.task.dto.ChangeStatusRequest;
 import com.collabflow.task.dto.CreateTaskRequest;
-import com.collabflow.task.dto.MoveToSprintRequest;
 import com.collabflow.task.dto.ReplaceAssigneesRequest;
 import com.collabflow.task.dto.SprintTasksResponse;
 import com.collabflow.task.dto.TaskResponse;
@@ -72,10 +71,18 @@ public class TaskController {
         return taskService.getSprintTasks(CurrentUser.id(jwt), sprintId);
     }
 
-    @PutMapping("/tasks/{key}/sprint")
-    public TaskResponse moveToSprint(@AuthenticationPrincipal Jwt jwt, @PathVariable String key,
-                                     @RequestBody MoveToSprintRequest request) {
-        return taskService.moveToSprint(CurrentUser.id(jwt), key, request);
+    /** Tags a task into a sprint. It keeps any sprint tags it already has. */
+    @PostMapping("/tasks/{key}/sprints/{sprintId}")
+    public TaskResponse tagIntoSprint(@AuthenticationPrincipal Jwt jwt, @PathVariable String key,
+                                      @PathVariable UUID sprintId) {
+        return taskService.tagIntoSprint(CurrentUser.id(jwt), key, sprintId);
+    }
+
+    /** Takes one sprint tag off a task. With no tags left it is back in the project's backlog. */
+    @DeleteMapping("/tasks/{key}/sprints/{sprintId}")
+    public TaskResponse untagFromSprint(@AuthenticationPrincipal Jwt jwt, @PathVariable String key,
+                                        @PathVariable UUID sprintId) {
+        return taskService.untagFromSprint(CurrentUser.id(jwt), key, sprintId);
     }
 
     @GetMapping("/tasks/{key}")

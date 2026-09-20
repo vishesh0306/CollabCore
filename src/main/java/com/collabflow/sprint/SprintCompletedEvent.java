@@ -7,5 +7,6 @@ import java.util.UUID;
  * module listens for this and sends unfinished tasks back to their backlog, and the audit log
  * writes it all down in the same transaction.
  */
-public record SprintCompletedEvent(UUID sprintId, UUID teamId, String sprintName, UUID actorId) {
+public record SprintCompletedEvent(UUID sprintId, UUID teamId, String sprintName, UUID actorId,
+                                   UUID carryOverToSprintId) {
 }

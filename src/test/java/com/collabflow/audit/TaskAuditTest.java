@@ -67,7 +67,7 @@ class TaskAuditTest extends ApiTest {
         change(put("/api/v1/tasks/{key}", key),
                 "{\"title\": \"Refund API v2\", \"description\": \"Partial refunds\"}");
         change(put("/api/v1/tasks/{key}/status", key), "{\"status\": \"IN_PROGRESS\"}");
-        change(put("/api/v1/tasks/{key}/sprint", key), "{\"sprintId\": \"" + sprintId + "\"}");
+        tagIntoSprint(key, sprintId);
         change(put("/api/v1/tasks/{key}/assignees", key), "{\"assigneeIds\": []}");
         mockMvc.perform(delete("/api/v1/tasks/{key}", key).header("Authorization", manager.token()))
                 .andExpect(status().isNoContent());
@@ -76,7 +76,7 @@ class TaskAuditTest extends ApiTest {
         assertThat(history).extracting(AuditEntry::getAction).containsExactly(
                 AuditAction.DELETED,
                 AuditAction.ASSIGNEES_CHANGED,
-                AuditAction.MOVED_TO_SPRINT,
+                AuditAction.TAGGED_INTO_SPRINT,
                 AuditAction.STATUS_CHANGED,
                 AuditAction.UPDATED,
                 AuditAction.ASSIGNEES_CHANGED,
@@ -101,15 +101,22 @@ class TaskAuditTest extends ApiTest {
     }
 
     @Test
-    void movingToASprintSaysWhereItCameFrom() throws Exception {
+    void taggingAndUntaggingASprintAreBothWrittenDown() throws Exception {
         UUID sprintId = createSprint(manager, teamId);
         String key = createTask("Refund API");
         UUID taskId = taskIdOf(key);
 
-        change(put("/api/v1/tasks/{key}/sprint", key), "{\"sprintId\": \"" + sprintId + "\"}");
-
+        tagIntoSprint(key, sprintId);
+        assertThat(historyOf(taskId).get(0).getAction()).isEqualTo(AuditAction.TAGGED_INTO_SPRINT);
         assertThat(historyOf(taskId).get(0).getChanges())
-                .containsExactly(new FieldChange("sprint", "Backlog", "Sprint"));
+                .containsExactly(new FieldChange("sprint", null, "Sprint"));
+
+        mockMvc.perform(delete("/api/v1/tasks/{key}/sprints/{sprintId}", key, sprintId)
+                .header("Authorization", manager.token())).andExpect(status().isOk());
+
+        assertThat(historyOf(taskId).get(0).getAction()).isEqualTo(AuditAction.UNTAGGED_FROM_SPRINT);
+        assertThat(historyOf(taskId).get(0).getChanges())
+                .containsExactly(new FieldChange("sprint", "Sprint", null));
     }
 
     @Test
@@ -176,6 +183,11 @@ class TaskAuditTest extends ApiTest {
 
     private List<AuditEntry> historyOf(UUID taskId) {
         return auditRepository.findByEntityTypeAndEntityIdOrderByIdDesc(AuditEntityType.TASK, taskId);
+    }
+
+    private void tagIntoSprint(String key, UUID sprintId) throws Exception {
+        mockMvc.perform(post("/api/v1/tasks/{key}/sprints/{sprintId}", key, sprintId)
+                .header("Authorization", manager.token())).andExpect(status().isOk());
     }
 
     private void change(org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder request,

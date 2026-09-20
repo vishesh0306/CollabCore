@@ -50,9 +50,9 @@ class TeamSprintScenarioTest extends ApiTest {
         String ranking = createTask(rahul, search, "Ranking", priya);
         String cleanup = createTask(rahul, search, "Old index cleanup", null); // stays in the backlog
 
-        // The tasks for this sprint are pulled in; Anita starts it.
+        // The tasks for this sprint are tagged into it; Anita starts it.
         for (String key : new String[] {refunds, payouts, ranking}) {
-            call(rahul, put("/api/v1/tasks/{key}/sprint", key), "{\"sprintId\": \"" + sprint + "\"}")
+            call(rahul, post("/api/v1/tasks/{key}/sprints/{sprintId}", key, sprint), null)
                     .andExpect(status().isOk());
         }
         call(anita, post("/api/v1/sprints/{id}/start", sprint), null)
@@ -71,15 +71,22 @@ class TeamSprintScenarioTest extends ApiTest {
                 .andExpect(jsonPath("$.total").value(3))
                 .andExpect(jsonPath("$.projects.length()").value(2));
 
-        // Anita completes the sprint: finished work stays with it, the rest goes back to the backlogs.
-        call(anita, post("/api/v1/sprints/{id}/complete", sprint), null)
+        // Anita plans the next sprint and completes this one, carrying the unfinished work over.
+        UUID nextSprint = createSprint(anita, alpha);
+        call(anita, post("/api/v1/sprints/{id}/complete", sprint),
+                "{\"carryOverToSprintId\": \"" + nextSprint + "\"}")
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
+
+        // The finished sprint still shows everything that was in it, done or not...
         call(rahul, get("/api/v1/sprints/{id}/tasks", sprint), null)
-                .andExpect(jsonPath("$.projects[0].tasks[*].key", containsInAnyOrder(refunds)));
-        call(rahul, get("/api/v1/projects/{id}/backlog", payments.id()), null)
-                .andExpect(jsonPath("$.items[*].key", containsInAnyOrder(payouts)));
+                .andExpect(jsonPath("$.projects[*].tasks[*].key", containsInAnyOrder(refunds, payouts, ranking)))
+                .andExpect(jsonPath("$.done").value(1));
+        // ...and the unfinished work continues in the next one.
+        call(rahul, get("/api/v1/sprints/{id}/tasks", nextSprint), null)
+                .andExpect(jsonPath("$.projects[*].tasks[*].key", containsInAnyOrder(payouts, ranking)));
+        // The task nobody put in a sprint is still the only thing in its backlog.
         call(rahul, get("/api/v1/projects/{id}/backlog", search.id()), null)
-                .andExpect(jsonPath("$.items[*].key", containsInAnyOrder(ranking, cleanup)));
+                .andExpect(jsonPath("$.items[*].key", containsInAnyOrder(cleanup)));
 
         // Someone from another team can't see any of it.
         TestUser outsider = newUser();

@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.collabflow.shared.CurrentUser;
+import com.collabflow.sprint.dto.CompleteSprintRequest;
 import com.collabflow.sprint.dto.SprintRequest;
 import com.collabflow.sprint.dto.SprintResponse;
 import jakarta.validation.Valid;
@@ -58,8 +59,13 @@ public class SprintController {
         return sprintService.startSprint(CurrentUser.id(jwt), sprintId);
     }
 
+    /**
+     * Completes a sprint. With {@code carryOverToSprintId} in the body, its unfinished tasks are
+     * tagged into that sprint too, keeping the tag of the sprint that just ended.
+     */
     @PostMapping("/sprints/{sprintId}/complete")
-    public SprintResponse completeSprint(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID sprintId) {
-        return sprintService.completeSprint(CurrentUser.id(jwt), sprintId);
+    public SprintResponse completeSprint(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID sprintId,
+                                         @RequestBody(required = false) CompleteSprintRequest request) {
+        return sprintService.completeSprint(CurrentUser.id(jwt), sprintId, request);
     }
 }

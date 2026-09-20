@@ -18,19 +18,15 @@ public interface TaskRepository extends JpaRepository<Task, UUID>, JpaSpecificat
     @Query("select t from Task t join fetch t.project p where p.code = :code and t.number = :number")
     Optional<Task> findByKey(@Param("code") String code, @Param("number") int number);
 
-    /** A sprint's tasks, grouped by project (sorted by project code, then task number). */
-    @Query("select t from Task t join fetch t.project p where t.sprint.id = :sprintId order by p.code, t.number")
+    /** The tasks tagged into a sprint, grouped by project (sorted by project code, then number). */
+    @Query("select t from Task t join fetch t.project p join t.sprints s "
+            + "where s.id = :sprintId order by p.code, t.number")
     List<Task> findInSprint(@Param("sprintId") UUID sprintId);
 
-    /**
-     * Sends a sprint's unfinished tasks back to the backlog, in one SQL statement.
-     * A bulk update like this goes straight to the database: it doesn't update task objects
-     * already loaded in memory, and @UpdateTimestamp isn't applied to the rows it changes.
-     */
-    @Modifying
-    @Query("update Task t set t.sprint = null "
-            + "where t.sprint.id = :sprintId and t.status <> com.collabflow.task.TaskStatus.DONE")
-    int moveUnfinishedTasksToBacklog(@Param("sprintId") UUID sprintId);
+    /** The unfinished tasks of a sprint, the ones a carry-over takes into the next sprint. */
+    @Query("select t from Task t join fetch t.project join t.sprints s "
+            + "where s.id = :sprintId and t.status <> com.collabflow.task.TaskStatus.DONE")
+    List<Task> findUnfinishedInSprint(@Param("sprintId") UUID sprintId);
 
     /**
      * The next tasks that are past their expected date, aren't done, and haven't been

@@ -33,8 +33,11 @@ public final class TaskEvents {
                                 Set<UUID> participants) {
     }
 
-    /** Sprint names, or "Backlog" for no sprint. No actor when a sprint ending caused the move. */
-    public record MovedToSprint(TaskRef task, UUID actorId, String fromSprint, String toSprint) {
+    /** Tagged into a sprint. No actor when carrying over from a sprint that was completed. */
+    public record SprintTagged(TaskRef task, UUID actorId, UUID sprintId, String sprintName) {
+    }
+
+    public record SprintUntagged(TaskRef task, UUID actorId, UUID sprintId, String sprintName) {
     }
 
     /** Nobody caused this one: the expected date simply passed. */

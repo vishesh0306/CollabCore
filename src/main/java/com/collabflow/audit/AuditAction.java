@@ -10,6 +10,9 @@ public enum AuditAction {
     DELETED,
     STATUS_CHANGED,
     ASSIGNEES_CHANGED,
+    TAGGED_INTO_SPRINT,
+    UNTAGGED_FROM_SPRINT,
+    /** No longer written. Kept because entries from before sprints became tags still say it. */
     MOVED_TO_SPRINT,
     MEMBER_ADDED,
     MEMBER_REMOVED,

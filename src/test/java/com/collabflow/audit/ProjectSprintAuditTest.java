@@ -76,7 +76,7 @@ class ProjectSprintAuditTest extends ApiTest {
     }
 
     @Test
-    void tasksPushedBackByAFinishedSprintAreLoggedWithNoActor() throws Exception {
+    void workCarriedIntoTheNextSprintIsLoggedForEachTask() throws Exception {
         TestProject project = createProject(manager, teamId);
         UUID sprintId = createSprint(manager, teamId);
         String body = mockMvc.perform(post("/api/v1/projects/{id}/tasks", project.id())
@@ -86,17 +86,24 @@ class ProjectSprintAuditTest extends ApiTest {
                 .andReturn().getResponse().getContentAsString();
         UUID taskId = UUID.fromString(JsonPath.read(body, "$.id"));
         String key = JsonPath.read(body, "$.key");
-        mockMvc.perform(put("/api/v1/tasks/{key}/sprint", key).header("Authorization", manager.token())
-                .contentType(MediaType.APPLICATION_JSON).content("{\"sprintId\": \"" + sprintId + "\"}"));
+        mockMvc.perform(post("/api/v1/tasks/{key}/sprints/{sprintId}", key, sprintId)
+                .header("Authorization", manager.token())).andExpect(status().isOk());
         mockMvc.perform(post("/api/v1/sprints/{id}/start", sprintId).header("Authorization", manager.token()));
+        UUID nextSprint = createSprint(manager, teamId);
 
         mockMvc.perform(post("/api/v1/sprints/{id}/complete", sprintId)
-                .header("Authorization", manager.token())).andExpect(status().isOk());
+                        .header("Authorization", manager.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"carryOverToSprintId\": \"" + nextSprint + "\"}"))
+                .andExpect(status().isOk());
 
-        AuditEntry pushedBack = historyOf(AuditEntityType.TASK, taskId).get(0);
-        assertThat(pushedBack.getAction()).isEqualTo(AuditAction.MOVED_TO_SPRINT);
-        assertThat(pushedBack.getActorId()).isNull(); // nobody moved it; the sprint ending did
-        assertThat(pushedBack.getChanges()).containsExactly(new FieldChange("sprint", "Sprint", "Backlog"));
+        AuditEntry carried = historyOf(AuditEntityType.TASK, taskId).get(0);
+        assertThat(carried.getAction()).isEqualTo(AuditAction.TAGGED_INTO_SPRINT);
+        // The manager asked for the carry-over, so their name is on it.
+        assertThat(carried.getActorId()).isEqualTo(manager.id());
+        assertThat(carried.getChanges()).containsExactly(new FieldChange("sprint", null, "Sprint"));
+        assertThat(historyOf(AuditEntityType.SPRINT, sprintId)).extracting(AuditEntry::getAction)
+                .containsExactly(AuditAction.COMPLETED, AuditAction.STARTED, AuditAction.CREATED);
     }
 
     private List<AuditEntry> historyOf(AuditEntityType type, UUID id) {

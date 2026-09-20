@@ -11,6 +11,7 @@ import com.collabflow.shared.error.BadRequestException;
 import com.collabflow.shared.error.ConflictException;
 import com.collabflow.shared.error.ForbiddenException;
 import com.collabflow.shared.error.NotFoundException;
+import com.collabflow.sprint.dto.CompleteSprintRequest;
 import com.collabflow.sprint.dto.SprintRequest;
 import com.collabflow.sprint.dto.SprintResponse;
 import com.collabflow.team.Team;
@@ -104,16 +105,28 @@ public class SprintService {
         return SprintResponse.from(sprint);
     }
 
+    /**
+     * Completes a sprint and, if asked, carries its unfinished work over: every task of this
+     * sprint that isn't Done is tagged into the named sprint as well. The old tag stays, so this
+     * sprint still shows what was in it. Tasks that are Done are left alone.
+     */
     @Transactional
-    public SprintResponse completeSprint(UUID callerId, UUID sprintId) {
+    public SprintResponse completeSprint(UUID callerId, UUID sprintId, CompleteSprintRequest request) {
         Sprint sprint = findManageableSprint(sprintId, callerId);
         if (sprint.getStatus() != SprintStatus.ACTIVE) {
             throw new ConflictException("Only the active sprint can be completed");
         }
+        UUID carryOverTo = request == null ? null : request.carryOverToSprintId();
+        if (carryOverTo != null) {
+            if (carryOverTo.equals(sprintId)) {
+                throw new BadRequestException("A sprint can't carry work over into itself");
+            }
+            findSprintOfTeam(carryOverTo, sprint.getTeam().getId());
+        }
         sprint.complete();
-        // Listeners (e.g. tasks) react right away, inside this same transaction.
+        // Listeners (the task module carries the work over) run inside this same transaction.
         events.publishEvent(new SprintCompletedEvent(sprint.getId(), sprint.getTeam().getId(),
-                sprint.getName(), callerId));
+                sprint.getName(), callerId, carryOverTo));
         return SprintResponse.from(sprint);
     }
 
@@ -124,15 +137,14 @@ public class SprintService {
                 .orElseThrow(() -> new NotFoundException("Sprint not found"));
     }
 
-    /** For other features: a planned or active sprint of this team, e.g. to put a task into. */
-    public Sprint findOpenSprintOfTeam(UUID sprintId, UUID teamId) {
-        Sprint sprint = sprintRepository.findById(sprintId)
+    /**
+     * For other features: a sprint of this team, to tag a task into. Completed sprints count too
+     * — a finished sprint stays editable, so a task forgotten at the time can still be added.
+     */
+    public Sprint findSprintOfTeam(UUID sprintId, UUID teamId) {
+        return sprintRepository.findById(sprintId)
                 .filter(found -> found.getTeam().getId().equals(teamId))
                 .orElseThrow(() -> new BadRequestException("The sprint must belong to the task's team"));
-        if (!sprint.isOpen()) {
-            throw new BadRequestException("Tasks can only be added to a planned or active sprint");
-        }
-        return sprint;
     }
 
     private Sprint findManageableSprint(UUID sprintId, UUID callerId) {

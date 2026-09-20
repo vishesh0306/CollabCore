@@ -14,7 +14,7 @@ public record TaskResponse(
         UUID id,
         String key,
         UUID projectId,
-        UUID sprintId,
+        List<SprintTag> sprints,
         String title,
         String description,
         TaskStatus status,
@@ -36,7 +36,10 @@ public record TaskResponse(
                 task.getId(),
                 task.getKey(),
                 task.getProject().getId(),
-                task.getSprint() == null ? null : task.getSprint().getId(),
+                task.getSprints().stream()
+                        .map(sprint -> new SprintTag(sprint.getId(), sprint.getName()))
+                        .sorted(Comparator.comparing(SprintTag::name))
+                        .toList(),
                 task.getTitle(),
                 task.getDescription(),
                 task.getStatus(),

@@ -52,10 +52,15 @@ public class Task {
     /** Copied from the project, so a team's tasks can be listed without a join. */
     private UUID teamId;
 
-    /** The sprint this task is in, or null when it is in its project's backlog. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sprint_id")
-    private Sprint sprint;
+    /**
+     * The sprints this task is tagged into. A task can be in several at once and shows up in
+     * each of them; with none, it sits in its project's backlog.
+     */
+    @ManyToMany
+    @JoinTable(name = "task_sprints",
+            joinColumns = @JoinColumn(name = "task_id"),
+            inverseJoinColumns = @JoinColumn(name = "sprint_id"))
+    private Set<Sprint> sprints = new HashSet<>();
 
     private int number;
 
@@ -151,9 +156,18 @@ public class Task {
         assignees.addAll(newAssignees);
     }
 
-    /** Puts the task into a sprint, or back into the backlog with null. */
-    public void moveToSprint(Sprint sprint) {
-        this.sprint = sprint;
+    /** Tags the task into a sprint. Tagging it again changes nothing. */
+    public boolean addToSprint(Sprint sprint) {
+        return sprints.add(sprint);
+    }
+
+    /** Takes the tag off. Returns false if it wasn't there. */
+    public boolean removeFromSprint(Sprint sprint) {
+        return sprints.removeIf(tagged -> tagged.getId().equals(sprint.getId()));
+    }
+
+    public boolean isInBacklog() {
+        return sprints.isEmpty();
     }
 
     /** Remembers that the assignees have been told this expected date passed. */

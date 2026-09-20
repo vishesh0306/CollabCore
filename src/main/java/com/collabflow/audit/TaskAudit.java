@@ -55,9 +55,15 @@ class TaskAudit {
     }
 
     @EventListener
-    void onMovedToSprint(TaskEvents.MovedToSprint event) {
-        record(event.task(), event.actorId(), AuditAction.MOVED_TO_SPRINT,
-                List.of(FieldChange.of("sprint", event.fromSprint(), event.toSprint())));
+    void onSprintTagged(TaskEvents.SprintTagged event) {
+        record(event.task(), event.actorId(), AuditAction.TAGGED_INTO_SPRINT,
+                List.of(FieldChange.set("sprint", event.sprintName())));
+    }
+
+    @EventListener
+    void onSprintUntagged(TaskEvents.SprintUntagged event) {
+        record(event.task(), event.actorId(), AuditAction.UNTAGGED_FROM_SPRINT,
+                List.of(FieldChange.of("sprint", event.sprintName(), null)));
     }
 
     @EventListener

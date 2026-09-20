@@ -25,7 +25,6 @@ import com.collabflow.shared.error.ForbiddenException;
 import com.collabflow.shared.error.NotFoundException;
 import com.collabflow.task.dto.ChangeStatusRequest;
 import com.collabflow.task.dto.CreateTaskRequest;
-import com.collabflow.task.dto.MoveToSprintRequest;
 import com.collabflow.task.dto.ReplaceAssigneesRequest;
 import com.collabflow.task.dto.SprintTasksResponse;
 import com.collabflow.task.dto.TaskResponse;
@@ -116,30 +115,31 @@ public class TaskService {
     }
 
     /**
-     * Puts the task into a planned or active sprint of its team, or back into the backlog (null).
-     * This counts as changing the task, so members can only move their own tasks.
+     * Tags the task into one of its team's sprints. A task can be tagged into several at once and
+     * then shows up in each of them, so this adds a tag and never takes one away.
+     * Tagging counts as changing the task, so members can only tag their own.
      */
     @Transactional
-    public TaskResponse moveToSprint(UUID callerId, String key, MoveToSprintRequest request) {
+    public TaskResponse tagIntoSprint(UUID callerId, String key, UUID sprintId) {
         Task task = findChangeableTask(key, callerId);
-        if (task.getSprint() != null && !task.getSprint().isOpen()) {
-            throw new ConflictException("This task is part of a completed sprint and stays there");
-        }
-        Sprint sprint = request.sprintId() == null
-                ? null
-                : sprintService.findOpenSprintOfTeam(request.sprintId(), task.getTeamId());
-        String from = sprintName(task.getSprint());
-        String to = sprintName(sprint);
-        task.moveToSprint(sprint);
-        if (!from.equals(to)) {
-            events.publishEvent(new TaskEvents.MovedToSprint(TaskRef.of(task), callerId, from, to));
+        Sprint sprint = sprintService.findSprintOfTeam(sprintId, task.getTeamId());
+        if (task.addToSprint(sprint)) {
+            events.publishEvent(new TaskEvents.SprintTagged(TaskRef.of(task), callerId,
+                    sprint.getId(), sprint.getName()));
         }
         return TaskResponse.from(task);
     }
 
-    /** How the log should name where a task sits. */
-    private static String sprintName(Sprint sprint) {
-        return sprint == null ? "Backlog" : sprint.getName();
+    /** Takes a sprint tag off. With no tags left the task is back in its project's backlog. */
+    @Transactional
+    public TaskResponse untagFromSprint(UUID callerId, String key, UUID sprintId) {
+        Task task = findChangeableTask(key, callerId);
+        Sprint sprint = sprintService.findSprintOfTeam(sprintId, task.getTeamId());
+        if (task.removeFromSprint(sprint)) {
+            events.publishEvent(new TaskEvents.SprintUntagged(TaskRef.of(task), callerId,
+                    sprint.getId(), sprint.getName()));
+        }
+        return TaskResponse.from(task);
     }
 
     private static Set<UUID> idsOf(Collection<User> users) {

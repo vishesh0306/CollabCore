@@ -31,10 +31,11 @@ public record TaskFilters(
             conditions.add((task, query, cb) -> cb.equal(task.get("project").get("id"), projectId));
         }
         if (sprintId != null) {
-            conditions.add((task, query, cb) -> cb.equal(task.get("sprint").get("id"), sprintId));
+            conditions.add((task, query, cb) -> cb.equal(task.join("sprints").get("id"), sprintId));
         }
         if (Boolean.TRUE.equals(backlog)) {
-            conditions.add((task, query, cb) -> cb.isNull(task.get("sprint")));
+            // No sprint tag at all: the task sits in its project's backlog.
+            conditions.add((task, query, cb) -> cb.isEmpty(task.get("sprints")));
         }
         if (status != null) {
             conditions.add((task, query, cb) -> cb.equal(task.get("status"), status));

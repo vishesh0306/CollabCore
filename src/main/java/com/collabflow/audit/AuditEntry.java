@@ -42,6 +42,9 @@ public class AuditEntry {
 
     private UUID teamId;
 
+    /** Set for projects, tasks and comments; empty for teams and memberships. */
+    private UUID projectId;
+
     @Enumerated(EnumType.STRING)
     private AuditEntityType entityType;
 
@@ -57,10 +60,11 @@ public class AuditEntry {
     @Column(columnDefinition = "jsonb")
     private List<FieldChange> changes;
 
-    AuditEntry(UUID actorId, UUID teamId, AuditEntityType entityType, UUID entityId, String entityLabel,
-               AuditAction action, List<FieldChange> changes) {
+    AuditEntry(UUID actorId, UUID teamId, UUID projectId, AuditEntityType entityType, UUID entityId,
+               String entityLabel, AuditAction action, List<FieldChange> changes) {
         this.actorId = actorId;
         this.teamId = teamId;
+        this.projectId = projectId;
         this.entityType = entityType;
         this.entityId = entityId;
         this.entityLabel = entityLabel;

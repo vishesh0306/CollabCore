@@ -33,8 +33,8 @@ class MoveUnfinishedTasksToBacklog {
         taskRepository.moveUnfinishedTasksToBacklog(event.sprintId());
 
         for (Task task : moving) {
-            events.publishEvent(new TaskEvents.MovedToSprint(task.getId(), task.getTeamId(), task.getKey(),
-                    null, event.sprintName(), "Backlog"));
+            events.publishEvent(new TaskEvents.MovedToSprint(TaskRef.of(task), null,
+                    event.sprintName(), "Backlog"));
         }
     }
 }

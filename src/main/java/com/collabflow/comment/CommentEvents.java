@@ -3,6 +3,8 @@ package com.collabflow.comment;
 import java.util.Set;
 import java.util.UUID;
 
+import com.collabflow.task.TaskRef;
+
 /**
  * What happened to a comment. Notifications react to a new one after the commit; the audit log
  * records all three inside the transaction.
@@ -15,13 +17,13 @@ public final class CommentEvents {
     private CommentEvents() {
     }
 
-    public record Added(UUID commentId, UUID teamId, String taskKey, String taskTitle, UUID actorId,
-                        Set<UUID> participants, Set<UUID> mentioned) {
+    public record Added(UUID commentId, TaskRef task, UUID actorId, Set<UUID> participants,
+                        Set<UUID> mentioned) {
     }
 
-    public record Edited(UUID commentId, UUID teamId, String taskKey, UUID actorId) {
+    public record Edited(UUID commentId, TaskRef task, UUID actorId) {
     }
 
-    public record Deleted(UUID commentId, UUID teamId, String taskKey, UUID actorId) {
+    public record Deleted(UUID commentId, TaskRef task, UUID actorId) {
     }
 }

@@ -31,8 +31,8 @@ public class OverdueReminders {
         List<Task> overdue = taskRepository.claimOverdueTasks(CompanyTime.today(), BATCH_SIZE);
         for (Task task : overdue) {
             task.markOverdueReminded();
-            events.publishEvent(new TaskEvents.Overdue(task.getKey(), task.getTitle(),
-                    task.getExpectedDate(), task.assigneeIds()));
+            events.publishEvent(new TaskEvents.Overdue(TaskRef.of(task), task.getExpectedDate(),
+                    task.assigneeIds()));
         }
         return overdue.size();
     }

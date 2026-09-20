@@ -20,32 +20,27 @@ public final class TaskEvents {
     private TaskEvents() {
     }
 
-    public record Created(UUID taskId, UUID teamId, String taskKey, String taskTitle, UUID actorId,
-                          List<FieldChange> fields) {
+    public record Created(TaskRef task, UUID actorId, List<FieldChange> fields) {
     }
 
-    public record DetailsUpdated(UUID taskId, UUID teamId, String taskKey, UUID actorId,
-                                 List<FieldChange> changes) {
+    public record DetailsUpdated(TaskRef task, UUID actorId, List<FieldChange> changes) {
     }
 
-    public record AssigneesChanged(UUID taskId, UUID teamId, String taskKey, String taskTitle, UUID actorId,
-                                   Set<UUID> added, Set<UUID> removed) {
+    public record AssigneesChanged(TaskRef task, UUID actorId, Set<UUID> added, Set<UUID> removed) {
     }
 
-    public record StatusChanged(UUID taskId, UUID teamId, String taskKey, String taskTitle, UUID actorId,
-                                TaskStatus from, TaskStatus to, Set<UUID> participants) {
+    public record StatusChanged(TaskRef task, UUID actorId, TaskStatus from, TaskStatus to,
+                                Set<UUID> participants) {
     }
 
-    /** Sprint names, or "Backlog" for no sprint. */
-    public record MovedToSprint(UUID taskId, UUID teamId, String taskKey, UUID actorId,
-                                String fromSprint, String toSprint) {
+    /** Sprint names, or "Backlog" for no sprint. No actor when a sprint ending caused the move. */
+    public record MovedToSprint(TaskRef task, UUID actorId, String fromSprint, String toSprint) {
     }
 
     /** Nobody caused this one: the expected date simply passed. */
-    public record Overdue(String taskKey, String taskTitle, LocalDate expectedDate, Set<UUID> assignees) {
+    public record Overdue(TaskRef task, LocalDate expectedDate, Set<UUID> assignees) {
     }
 
-    public record Deleted(UUID taskId, UUID teamId, String taskKey, String taskTitle, UUID actorId,
-                          Set<UUID> participants) {
+    public record Deleted(TaskRef task, UUID actorId, Set<UUID> participants) {
     }
 }

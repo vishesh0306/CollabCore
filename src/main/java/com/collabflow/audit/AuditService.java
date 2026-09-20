@@ -24,8 +24,16 @@ public class AuditService {
     private final AuditRepository auditRepository;
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public void record(UUID actorId, UUID teamId, UUID projectId, AuditEntityType entityType, UUID entityId,
+                       String entityLabel, AuditAction action, List<FieldChange> changes) {
+        auditRepository.save(new AuditEntry(actorId, teamId, projectId, entityType, entityId, entityLabel,
+                action, changes));
+    }
+
+    /** For changes that belong to no project: teams and who is in them. */
+    @Transactional(propagation = Propagation.MANDATORY)
     public void record(UUID actorId, UUID teamId, AuditEntityType entityType, UUID entityId,
                        String entityLabel, AuditAction action, List<FieldChange> changes) {
-        auditRepository.save(new AuditEntry(actorId, teamId, entityType, entityId, entityLabel, action, changes));
+        record(actorId, teamId, null, entityType, entityId, entityLabel, action, changes);
     }
 }

@@ -1,7 +1,10 @@
 package com.collabflow.identity;
 
+import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.collabflow.shared.error.NotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,19 @@ public class UserService {
     @Transactional(readOnly = true)
     public User getById(UUID userId) {
         return userRepository.findById(userId).orElseThrow(() -> new NotFoundException("User not found"));
+    }
+
+    /**
+     * Names for a set of users, in one query. Used where a list would otherwise look up each
+     * name on its own, e.g. a page of audit entries.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, String> namesOf(Collection<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, User::getName));
     }
 
     @Transactional(readOnly = true)

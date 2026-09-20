@@ -28,34 +28,35 @@ class TaskNotifications {
     void onAssigneesChanged(TaskEvents.AssigneesChanged event) {
         String actor = text.nameOf(event.actorId());
         notifications.notifyAll(event.added(), event.actorId(), NotificationType.TASK_ASSIGNED,
-                "%s assigned you to %s: %s".formatted(actor, event.taskKey(), event.taskTitle()),
-                NotificationText.taskLink(event.taskKey()));
+                "%s assigned you to %s: %s".formatted(actor, event.task().key(), event.task().title()),
+                NotificationText.taskLink(event.task().key()));
         notifications.notifyAll(event.removed(), event.actorId(), NotificationType.TASK_UNASSIGNED,
-                "%s removed you from %s: %s".formatted(actor, event.taskKey(), event.taskTitle()),
-                NotificationText.taskLink(event.taskKey()));
+                "%s removed you from %s: %s".formatted(actor, event.task().key(), event.task().title()),
+                NotificationText.taskLink(event.task().key()));
     }
 
     @TransactionalEventListener
     void onStatusChanged(TaskEvents.StatusChanged event) {
         notifications.notifyAll(event.participants(), event.actorId(), NotificationType.TASK_STATUS_CHANGED,
-                "%s moved %s from %s to %s".formatted(text.nameOf(event.actorId()), event.taskKey(),
+                "%s moved %s from %s to %s".formatted(text.nameOf(event.actorId()), event.task().key(),
                         event.from().label(), event.to().label()),
-                NotificationText.taskLink(event.taskKey()));
+                NotificationText.taskLink(event.task().key()));
     }
 
     @TransactionalEventListener
     void onOverdue(TaskEvents.Overdue event) {
         // No actor: nobody did this, the date simply passed.
         notifications.notifyAll(event.assignees(), null, NotificationType.TASK_OVERDUE,
-                "%s is overdue. It was expected by %s: %s".formatted(event.taskKey(),
-                        DATE.format(event.expectedDate()), event.taskTitle()),
-                NotificationText.taskLink(event.taskKey()));
+                "%s is overdue. It was expected by %s: %s".formatted(event.task().key(),
+                        DATE.format(event.expectedDate()), event.task().title()),
+                NotificationText.taskLink(event.task().key()));
     }
 
     @TransactionalEventListener
     void onDeleted(TaskEvents.Deleted event) {
         notifications.notifyAll(event.participants(), event.actorId(), NotificationType.TASK_DELETED,
-                "%s deleted %s: %s".formatted(text.nameOf(event.actorId()), event.taskKey(), event.taskTitle()),
+                "%s deleted %s: %s".formatted(text.nameOf(event.actorId()), event.task().key(),
+                        event.task().title()),
                 null); // no link: the task is gone
     }
 }

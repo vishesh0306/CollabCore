@@ -77,11 +77,10 @@ public class TaskService {
         if (task.getExpectedDate() != null) {
             initial.add(FieldChange.set("expectedDate", task.getExpectedDate()));
         }
-        events.publishEvent(new TaskEvents.Created(task.getId(), task.getTeamId(), task.getKey(),
-                task.getTitle(), callerId, initial));
+        events.publishEvent(new TaskEvents.Created(TaskRef.of(task), callerId, initial));
         if (!assignees.isEmpty()) {
-            events.publishEvent(new TaskEvents.AssigneesChanged(task.getId(), task.getTeamId(), task.getKey(),
-                    task.getTitle(), callerId, idsOf(assignees), Set.of()));
+            events.publishEvent(new TaskEvents.AssigneesChanged(TaskRef.of(task), callerId,
+                    idsOf(assignees), Set.of()));
         }
         return TaskResponse.from(task);
     }
@@ -133,8 +132,7 @@ public class TaskService {
         String to = sprintName(sprint);
         task.moveToSprint(sprint);
         if (!from.equals(to)) {
-            events.publishEvent(new TaskEvents.MovedToSprint(task.getId(), task.getTeamId(), task.getKey(),
-                    callerId, from, to));
+            events.publishEvent(new TaskEvents.MovedToSprint(TaskRef.of(task), callerId, from, to));
         }
         return TaskResponse.from(task);
     }
@@ -169,8 +167,7 @@ public class TaskService {
 
         task.updateDetails(request.title(), request.description(), request.expectedDate());
         if (!changes.isEmpty()) {
-            events.publishEvent(new TaskEvents.DetailsUpdated(task.getId(), task.getTeamId(), task.getKey(),
-                    callerId, changes));
+            events.publishEvent(new TaskEvents.DetailsUpdated(TaskRef.of(task), callerId, changes));
         }
         return TaskResponse.from(task);
     }
@@ -187,8 +184,8 @@ public class TaskService {
         TaskStatus previous = task.getStatus();
         task.changeStatus(request.status());
         if (previous != request.status()) {
-            events.publishEvent(new TaskEvents.StatusChanged(task.getId(), task.getTeamId(), task.getKey(),
-                    task.getTitle(), callerId, previous, request.status(), task.participantIds()));
+            events.publishEvent(new TaskEvents.StatusChanged(TaskRef.of(task), callerId, previous,
+                    request.status(), task.participantIds()));
         }
         return TaskResponse.from(task);
     }
@@ -205,8 +202,7 @@ public class TaskService {
         Set<UUID> removed = new HashSet<>(before);
         removed.removeAll(after);
         if (!added.isEmpty() || !removed.isEmpty()) {
-            events.publishEvent(new TaskEvents.AssigneesChanged(task.getId(), task.getTeamId(), task.getKey(),
-                    task.getTitle(), callerId, added, removed));
+            events.publishEvent(new TaskEvents.AssigneesChanged(TaskRef.of(task), callerId, added, removed));
         }
         return TaskResponse.from(task);
     }
@@ -216,8 +212,7 @@ public class TaskService {
     public void deleteTask(UUID callerId, String key) {
         Task task = findChangeableTask(key, callerId);
         task.delete();
-        events.publishEvent(new TaskEvents.Deleted(task.getId(), task.getTeamId(), task.getKey(),
-                task.getTitle(), callerId, task.participantIds()));
+        events.publishEvent(new TaskEvents.Deleted(TaskRef.of(task), callerId, task.participantIds()));
     }
 
     /**

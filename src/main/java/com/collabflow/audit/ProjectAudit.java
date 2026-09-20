@@ -1,8 +1,10 @@
 package com.collabflow.audit;
 
 import java.util.List;
+import java.util.UUID;
 
 import com.collabflow.project.ProjectEvents;
+import com.collabflow.shared.FieldChange;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -16,25 +18,30 @@ class ProjectAudit {
 
     @EventListener
     void onCreated(ProjectEvents.Created event) {
-        audit.record(event.actorId(), event.teamId(), AuditEntityType.PROJECT, event.projectId(),
-                event.code(), AuditAction.CREATED, event.fields());
+        record(event.projectId(), event.teamId(), event.code(), event.actorId(),
+                AuditAction.CREATED, event.fields());
     }
 
     @EventListener
     void onUpdated(ProjectEvents.Updated event) {
-        audit.record(event.actorId(), event.teamId(), AuditEntityType.PROJECT, event.projectId(),
-                event.code(), AuditAction.UPDATED, event.changes());
+        record(event.projectId(), event.teamId(), event.code(), event.actorId(),
+                AuditAction.UPDATED, event.changes());
     }
 
     @EventListener
     void onCompleted(ProjectEvents.Completed event) {
-        audit.record(event.actorId(), event.teamId(), AuditEntityType.PROJECT, event.projectId(),
-                event.code(), AuditAction.COMPLETED, List.of());
+        record(event.projectId(), event.teamId(), event.code(), event.actorId(),
+                AuditAction.COMPLETED, List.of());
     }
 
     @EventListener
     void onReopened(ProjectEvents.Reopened event) {
-        audit.record(event.actorId(), event.teamId(), AuditEntityType.PROJECT, event.projectId(),
-                event.code(), AuditAction.REOPENED, List.of());
+        record(event.projectId(), event.teamId(), event.code(), event.actorId(),
+                AuditAction.REOPENED, List.of());
+    }
+
+    private void record(UUID projectId, UUID teamId, String code, UUID actorId, AuditAction action,
+                        List<FieldChange> changes) {
+        audit.record(actorId, teamId, projectId, AuditEntityType.PROJECT, projectId, code, action, changes);
     }
 }

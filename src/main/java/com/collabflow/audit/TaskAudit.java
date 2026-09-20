@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import com.collabflow.shared.FieldChange;
 import com.collabflow.task.TaskEvents;
+import com.collabflow.task.TaskRef;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -27,19 +28,17 @@ class TaskAudit {
 
     @EventListener
     void onCreated(TaskEvents.Created event) {
-        record(event.teamId(), event.taskId(), event.taskKey(), event.actorId(),
-                AuditAction.CREATED, event.fields());
+        record(event.task(), event.actorId(), AuditAction.CREATED, event.fields());
     }
 
     @EventListener
     void onDetailsUpdated(TaskEvents.DetailsUpdated event) {
-        record(event.teamId(), event.taskId(), event.taskKey(), event.actorId(),
-                AuditAction.UPDATED, event.changes());
+        record(event.task(), event.actorId(), AuditAction.UPDATED, event.changes());
     }
 
     @EventListener
     void onStatusChanged(TaskEvents.StatusChanged event) {
-        record(event.teamId(), event.taskId(), event.taskKey(), event.actorId(), AuditAction.STATUS_CHANGED,
+        record(event.task(), event.actorId(), AuditAction.STATUS_CHANGED,
                 List.of(FieldChange.of("status", event.from(), event.to())));
     }
 
@@ -52,23 +51,22 @@ class TaskAudit {
         if (!event.removed().isEmpty()) {
             changes.add(FieldChange.of("assigneeRemoved", names.of(event.removed()), null));
         }
-        record(event.teamId(), event.taskId(), event.taskKey(), event.actorId(),
-                AuditAction.ASSIGNEES_CHANGED, changes);
+        record(event.task(), event.actorId(), AuditAction.ASSIGNEES_CHANGED, changes);
     }
 
     @EventListener
     void onMovedToSprint(TaskEvents.MovedToSprint event) {
-        record(event.teamId(), event.taskId(), event.taskKey(), event.actorId(), AuditAction.MOVED_TO_SPRINT,
+        record(event.task(), event.actorId(), AuditAction.MOVED_TO_SPRINT,
                 List.of(FieldChange.of("sprint", event.fromSprint(), event.toSprint())));
     }
 
     @EventListener
     void onDeleted(TaskEvents.Deleted event) {
-        record(event.teamId(), event.taskId(), event.taskKey(), event.actorId(), AuditAction.DELETED, List.of());
+        record(event.task(), event.actorId(), AuditAction.DELETED, List.of());
     }
 
-    private void record(UUID teamId, UUID taskId, String key, UUID actorId,
-                        AuditAction action, List<FieldChange> changes) {
-        audit.record(actorId, teamId, AuditEntityType.TASK, taskId, key, action, changes);
+    private void record(TaskRef task, UUID actorId, AuditAction action, List<FieldChange> changes) {
+        audit.record(actorId, task.teamId(), task.projectId(), AuditEntityType.TASK, task.id(),
+                task.key(), action, changes);
     }
 }

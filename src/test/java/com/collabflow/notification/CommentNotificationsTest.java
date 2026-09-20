@@ -38,7 +38,8 @@ class CommentNotificationsTest extends ApiTest {
                         .content("{\"title\": \"Refund API\", \"assigneeIds\": [\"" + assignee.id() + "\"]}"))
                 .andReturn().getResponse().getContentAsString();
         taskKey = JsonPath.read(body, "$.key");
-        markAllRead(assignee); // clear the "you were assigned" one, so each test starts clean
+        // Forget the "you joined the team" and "you were assigned" ones, so each test starts clean.
+        clearNotifications(manager, author, assignee);
     }
 
     @Test
@@ -95,7 +96,4 @@ class CommentNotificationsTest extends ApiTest {
                 .andExpect(status().isOk());
     }
 
-    private void markAllRead(TestUser user) throws Exception {
-        mockMvc.perform(post("/api/v1/notifications/read-all").header("Authorization", user.token()));
-    }
 }

@@ -1,5 +1,7 @@
 package com.collabflow.notification;
 
+import java.time.format.DateTimeFormatter;
+
 import com.collabflow.task.TaskEvents;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,6 +18,8 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Component
 @RequiredArgsConstructor
 class TaskNotifications {
+
+    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("d MMM yyyy");
 
     private final NotificationService notifications;
     private final NotificationText text;
@@ -36,6 +40,15 @@ class TaskNotifications {
         notifications.notifyAll(event.participants(), event.actorId(), NotificationType.TASK_STATUS_CHANGED,
                 "%s moved %s from %s to %s".formatted(text.nameOf(event.actorId()), event.taskKey(),
                         event.from().label(), event.to().label()),
+                NotificationText.taskLink(event.taskKey()));
+    }
+
+    @TransactionalEventListener
+    void onOverdue(TaskEvents.Overdue event) {
+        // No actor: nobody did this, the date simply passed.
+        notifications.notifyAll(event.assignees(), null, NotificationType.TASK_OVERDUE,
+                "%s is overdue. It was expected by %s: %s".formatted(event.taskKey(),
+                        DATE.format(event.expectedDate()), event.taskTitle()),
                 NotificationText.taskLink(event.taskKey()));
     }
 

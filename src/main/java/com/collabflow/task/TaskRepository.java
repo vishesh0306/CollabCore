@@ -1,5 +1,6 @@
 package com.collabflow.task;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +31,26 @@ public interface TaskRepository extends JpaRepository<Task, UUID>, JpaSpecificat
     @Query("update Task t set t.sprint = null "
             + "where t.sprint.id = :sprintId and t.status <> com.collabflow.task.TaskStatus.DONE")
     int moveUnfinishedTasksToBacklog(@Param("sprintId") UUID sprintId);
+
+    /**
+     * The next tasks that are past their expected date, aren't done, and haven't been
+     * reminded about for that date yet.
+     *
+     * <p>FOR UPDATE locks the rows this run is about to mark, and SKIP LOCKED makes a second
+     * copy of the app pick different rows instead of waiting, so the same reminder is never
+     * sent twice. Native SQL, so "deleted_at IS NULL" has to be written out here.
+     */
+    @Query(value = """
+            SELECT * FROM tasks
+            WHERE deleted_at IS NULL
+              AND expected_date < :today
+              AND status <> 'DONE'
+              AND (overdue_reminded_for IS NULL OR overdue_reminded_for <> expected_date)
+            ORDER BY expected_date
+            LIMIT :limit
+            FOR UPDATE SKIP LOCKED
+            """, nativeQuery = true)
+    List<Task> claimOverdueTasks(@Param("today") LocalDate today, @Param("limit") int limit);
 
     /**
      * Unassigns a person from every task of one team, in a single SQL statement.

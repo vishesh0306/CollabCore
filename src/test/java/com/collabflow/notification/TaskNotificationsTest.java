@@ -33,6 +33,7 @@ class TaskNotificationsTest extends ApiTest {
         addToTeam(teamId, member, "MEMBER");
         addToTeam(teamId, otherMember, "MEMBER");
         project = createProject(manager, teamId);
+        clearNotifications(manager, member, otherMember); // forget the "you joined the team" ones
     }
 
     @Test
@@ -56,7 +57,7 @@ class TaskNotificationsTest extends ApiTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"assigneeIds\": []}"));
 
-        notifications(otherMember)
+        unreadNotifications(otherMember)
                 .andExpect(jsonPath("$.items[0].type").value("TASK_UNASSIGNED"))
                 .andExpect(jsonPath("$.totalItems").value(2)); // assigned, then unassigned
     }
@@ -108,7 +109,8 @@ class TaskNotificationsTest extends ApiTest {
         mockMvc.perform(post("/api/v1/notifications/read-all").header("Authorization", otherMember.token()))
                 .andExpect(status().isNoContent());
         unreadCount(otherMember).andExpect(jsonPath("$.unread").value(0));
-        notifications(otherMember).andExpect(jsonPath("$.totalItems").value(2)); // still listed, just read
+        // The two tasks and the earlier "you joined the team": read ones stay in the list.
+        notifications(otherMember).andExpect(jsonPath("$.totalItems").value(3));
     }
 
     @Test
@@ -135,6 +137,11 @@ class TaskNotificationsTest extends ApiTest {
 
     private ResultActions notifications(TestUser user) throws Exception {
         return mockMvc.perform(get("/api/v1/notifications").header("Authorization", user.token()))
+                .andExpect(status().isOk());
+    }
+
+    private ResultActions unreadNotifications(TestUser user) throws Exception {
+        return mockMvc.perform(get("/api/v1/notifications?unread=true").header("Authorization", user.token()))
                 .andExpect(status().isOk());
     }
 

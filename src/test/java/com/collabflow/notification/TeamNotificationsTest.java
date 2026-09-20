@@ -45,8 +45,7 @@ class TeamNotificationsTest extends ApiTest {
         UUID teamId = createTeam(manager);
         addToTeam(teamId, member, "MEMBER");
         UUID sprintId = createSprint(manager, teamId);
-        markAllRead(manager);
-        markAllRead(member);
+        clearNotifications(manager, member);
 
         mockMvc.perform(post("/api/v1/sprints/{id}/start", sprintId)
                         .header("Authorization", manager.token()))
@@ -69,9 +68,5 @@ class TeamNotificationsTest extends ApiTest {
     private ResultActions unreadCount(TestUser user) throws Exception {
         return mockMvc.perform(get("/api/v1/notifications/unread-count").header("Authorization", user.token()))
                 .andExpect(status().isOk());
-    }
-
-    private void markAllRead(TestUser user) throws Exception {
-        mockMvc.perform(post("/api/v1/notifications/read-all").header("Authorization", user.token()));
     }
 }

@@ -115,6 +115,16 @@ public abstract class ApiTest {
         return UUID.fromString(JsonPath.read(body, "$.id"));
     }
 
+    /**
+     * Marks everything these users have been notified about as read, so a test can start from
+     * a clean unread count. Setting a team up already notifies everyone who joins it.
+     */
+    protected void clearNotifications(TestUser... users) throws Exception {
+        for (TestUser user : users) {
+            mockMvc.perform(post("/api/v1/notifications/read-all").header("Authorization", user.token()));
+        }
+    }
+
     /** Project codes are unique across all tests in the shared database, e.g. "P3F9A1C0". */
     protected static String uniqueProjectCode() {
         return "P" + UUID.randomUUID().toString().replace("-", "").substring(0, 7).toUpperCase();

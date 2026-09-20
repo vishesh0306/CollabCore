@@ -90,6 +90,9 @@ public class Task {
 
     private Instant deletedAt;
 
+    /** The expected date the assignees were already reminded about, so it isn't sent twice. */
+    private LocalDate overdueRemindedFor;
+
     public Task(Project project, int number, String title, String description, LocalDate expectedDate,
                 User createdBy, Set<User> assignees) {
         this.project = project;
@@ -122,6 +125,12 @@ public class Task {
         return ids;
     }
 
+    public Set<UUID> assigneeIds() {
+        Set<UUID> ids = new HashSet<>();
+        assignees.forEach(user -> ids.add(user.getId()));
+        return ids;
+    }
+
     public void updateDetails(String title, String description, LocalDate expectedDate) {
         this.title = title;
         this.description = description;
@@ -145,6 +154,11 @@ public class Task {
     /** Puts the task into a sprint, or back into the backlog with null. */
     public void moveToSprint(Sprint sprint) {
         this.sprint = sprint;
+    }
+
+    /** Remembers that the assignees have been told this expected date passed. */
+    public void markOverdueReminded() {
+        overdueRemindedFor = expectedDate;
     }
 
     public void delete() {

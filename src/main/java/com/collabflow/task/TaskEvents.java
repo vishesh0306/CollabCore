@@ -1,5 +1,6 @@
 package com.collabflow.task;
 
+import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 
@@ -21,6 +22,10 @@ public final class TaskEvents {
 
     public record StatusChanged(String taskKey, String taskTitle, UUID actorId,
                                 TaskStatus from, TaskStatus to, Set<UUID> participants) {
+    }
+
+    /** Nobody caused this one: the expected date simply passed. */
+    public record Overdue(String taskKey, String taskTitle, LocalDate expectedDate, Set<UUID> assignees) {
     }
 
     public record Deleted(String taskKey, String taskTitle, UUID actorId, Set<UUID> participants) {

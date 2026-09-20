@@ -41,7 +41,8 @@ public class TeamMemberService {
         try {
             MemberResponse member = MemberResponse.from(
                     memberRepository.saveAndFlush(new TeamMember(team, user, request.role())));
-            events.publishEvent(new TeamMemberAddedEvent(teamId, team.getName(), callerId, user.getId()));
+            events.publishEvent(new TeamEvents.MemberAdded(teamId, team.getName(), callerId,
+                    user.getId(), request.role()));
             return member;
         } catch (DataIntegrityViolationException e) {
             // Someone added the same person at the same moment; the unique (team, user) rule stopped it.
@@ -56,7 +57,12 @@ public class TeamMemberService {
         if (member.getRole() == TeamRole.MANAGER && request.role() != TeamRole.MANAGER) {
             requireAnotherManager(teamId);
         }
+        TeamRole previous = member.getRole();
         member.changeRole(request.role()); // saved automatically when the transaction commits
+        if (previous != request.role()) {
+            events.publishEvent(new TeamEvents.MemberRoleChanged(teamId, callerId, userId,
+                    previous, request.role()));
+        }
         return MemberResponse.from(member);
     }
 
@@ -69,7 +75,7 @@ public class TeamMemberService {
         }
         memberRepository.delete(member);
         // Listeners run right away, inside this same transaction (e.g. tasks unassign the person).
-        events.publishEvent(new TeamMemberRemovedEvent(teamId, userId));
+        events.publishEvent(new TeamEvents.MemberRemoved(teamId, callerId, userId));
     }
 
     /** The user, if they are a manager of the team. Other features use this, e.g. to check a project lead. */

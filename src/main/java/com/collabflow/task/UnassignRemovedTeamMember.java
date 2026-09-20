@@ -1,6 +1,6 @@
 package com.collabflow.task;
 
-import com.collabflow.team.TeamMemberRemovedEvent;
+import com.collabflow.team.TeamEvents;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -19,7 +19,7 @@ class UnassignRemovedTeamMember {
     private final TaskRepository taskRepository;
 
     @EventListener
-    void on(TeamMemberRemovedEvent event) {
+    void on(TeamEvents.MemberRemoved event) {
         taskRepository.removeAssigneeFromTeamTasks(event.teamId(), event.userId());
     }
 }

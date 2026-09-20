@@ -3,7 +3,7 @@ package com.collabflow.notification;
 import java.util.Set;
 
 import com.collabflow.sprint.SprintStartedEvent;
-import com.collabflow.team.TeamMemberAddedEvent;
+import com.collabflow.team.TeamEvents;
 import com.collabflow.team.TeamMemberService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -19,7 +19,7 @@ class TeamNotifications {
     private final TeamMemberService teamMemberService;
 
     @TransactionalEventListener
-    void onMemberAdded(TeamMemberAddedEvent event) {
+    void onMemberAdded(TeamEvents.MemberAdded event) {
         notifications.notifyAll(Set.of(event.userId()), event.actorId(), NotificationType.ADDED_TO_TEAM,
                 "%s added you to the team %s".formatted(text.nameOf(event.actorId()), event.teamName()),
                 "/teams/" + event.teamId());

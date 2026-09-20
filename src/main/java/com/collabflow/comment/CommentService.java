@@ -48,8 +48,8 @@ public class CommentService {
         Comment comment = commentRepository.saveAndFlush(new Comment(task, author, request.body()));
 
         Set<UUID> mentioned = Mentions.findIn(request.body(), teamMemberService.findMembers(task.getTeamId()));
-        events.publishEvent(new CommentEvents.Added(task.getKey(), task.getTitle(), callerId,
-                task.participantIds(), mentioned));
+        events.publishEvent(new CommentEvents.Added(comment.getId(), task.getTeamId(), task.getKey(),
+                task.getTitle(), callerId, task.participantIds(), mentioned));
         return CommentResponse.from(comment);
     }
 
@@ -69,6 +69,8 @@ public class CommentService {
         }
         ProjectService.requireActive(comment.getTask().getProject());
         comment.edit(request.body());
+        events.publishEvent(new CommentEvents.Edited(comment.getId(), comment.getTask().getTeamId(),
+                comment.getTask().getKey(), callerId));
         return CommentResponse.from(comment);
     }
 
@@ -80,6 +82,8 @@ public class CommentService {
         }
         ProjectService.requireActive(comment.getTask().getProject());
         comment.delete();
+        events.publishEvent(new CommentEvents.Deleted(comment.getId(), comment.getTask().getTeamId(),
+                comment.getTask().getKey(), callerId));
     }
 
     /** 404 unless the comment (and its task) exists and the caller may see the task's team. */

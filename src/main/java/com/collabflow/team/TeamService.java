@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import com.collabflow.identity.User;
 import com.collabflow.identity.UserService;
+import com.collabflow.shared.FieldChange;
 import com.collabflow.shared.error.ConflictException;
 import com.collabflow.team.dto.CreateTeamRequest;
 import com.collabflow.team.dto.TeamResponse;
@@ -46,7 +47,10 @@ public class TeamService {
 
         Team team = teamRepository.save(new Team(request.name(), request.description()));
         TeamMember firstManager = memberRepository.save(new TeamMember(team, manager, TeamRole.MANAGER));
-        events.publishEvent(new TeamMemberAddedEvent(team.getId(), team.getName(), callerId, manager.getId()));
+        events.publishEvent(new TeamEvents.Created(team.getId(), team.getName(), callerId,
+                List.of(FieldChange.set("name", team.getName()))));
+        events.publishEvent(new TeamEvents.MemberAdded(team.getId(), team.getName(), callerId,
+                manager.getId(), TeamRole.MANAGER));
         // Run both INSERTs now. The @CreationTimestamp values are only filled in when the INSERT
         // runs, so without this the response would show createdAt and joinedAt as null.
         flushOrConflict();

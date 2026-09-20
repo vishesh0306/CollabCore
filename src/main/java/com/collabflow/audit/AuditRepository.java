@@ -1,5 +1,6 @@
 package com.collabflow.audit;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,6 +19,14 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 public interface AuditRepository extends JpaRepository<AuditEntry, Long>,
         JpaSpecificationExecutor<AuditEntry> {
 
-    /** One item's history, newest first: the task page (TSK-8). */
+    /** One item's history, newest first. */
     List<AuditEntry> findByEntityTypeAndEntityIdOrderByIdDesc(AuditEntityType entityType, UUID entityId);
+
+    /**
+     * Everything that ever happened to one task, found by the label it was called at the time
+     * ("PAY-12"), including its comments. Looked up by label rather than by task id on purpose:
+     * the history has to survive the task being deleted, and a deleted task can't be loaded.
+     */
+    List<AuditEntry> findByEntityLabelAndEntityTypeInOrderByIdDesc(String entityLabel,
+                                                                   Collection<AuditEntityType> entityTypes);
 }

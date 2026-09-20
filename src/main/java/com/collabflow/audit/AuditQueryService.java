@@ -3,6 +3,7 @@ package com.collabflow.audit;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -13,8 +14,7 @@ import com.collabflow.identity.UserService;
 import com.collabflow.project.Project;
 import com.collabflow.project.ProjectService;
 import com.collabflow.shared.error.BadRequestException;
-import com.collabflow.task.Task;
-import com.collabflow.task.TaskService;
+import com.collabflow.shared.error.NotFoundException;
 import com.collabflow.team.TeamAccess;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
@@ -35,15 +35,23 @@ public class AuditQueryService {
     private final AuditRepository auditRepository;
     private final UserService userService;
     private final TeamAccess teamAccess;
-    private final TaskService taskService;
     private final ProjectService projectService;
 
-    /** TSK-8: one task's full history, oldest change last. Not paged: a task has few entries. */
+    /**
+     * TSK-8: one task's full history, newest first, including its comments. Not paged: a task
+     * has few entries.
+     *
+     * <p>Read from the log by the task's key, not by loading the task, so a deleted task still
+     * answers for what was done to it. Permission comes from the team on the entries themselves.
+     */
     @Transactional(readOnly = true)
     public List<AuditEntryResponse> taskHistory(UUID callerId, String key) {
-        Task task = taskService.findVisibleTask(key, callerId);
-        return describe(auditRepository.findByEntityTypeAndEntityIdOrderByIdDesc(
-                AuditEntityType.TASK, task.getId()));
+        List<AuditEntry> entries = auditRepository.findByEntityLabelAndEntityTypeInOrderByIdDesc(
+                key.toUpperCase(Locale.ROOT), List.of(AuditEntityType.TASK, AuditEntityType.COMMENT));
+        if (entries.isEmpty() || !teamAccess.canView(entries.get(0).getTeamId(), callerId)) {
+            throw new NotFoundException("Task not found");
+        }
+        return describe(entries);
     }
 
     /** Everything that happened in a team, newest first. */

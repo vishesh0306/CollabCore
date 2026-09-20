@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -62,6 +64,37 @@ class AuditReadTest extends ApiTest {
                 .andExpect(jsonPath("$[0].changes[0].oldValue").value("TO_DO"))
                 .andExpect(jsonPath("$[0].changes[0].newValue").value("IN_PROGRESS"))
                 .andExpect(jsonPath("$[2].action").value("CREATED"));
+    }
+
+    @Test
+    void aTaskKeepsItsHistoryAfterItIsDeleted() throws Exception {
+        mockMvc.perform(delete("/api/v1/tasks/{key}", taskKey).header("Authorization", manager.token()))
+                .andExpect(status().isNoContent());
+
+        // The task itself is gone from every list and from GET /tasks/{key}...
+        mockMvc.perform(get("/api/v1/tasks/{key}", taskKey).header("Authorization", member.token()))
+                .andExpect(status().isNotFound());
+        // ...but what was done to it is still on the record, deletion included.
+        mockMvc.perform(get("/api/v1/tasks/{key}/history", taskKey).header("Authorization", member.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].action").value("DELETED"))
+                .andExpect(jsonPath("$[*].action", hasItem("CREATED")));
+    }
+
+    @Test
+    void aTasksHistoryIncludesItsComments() throws Exception {
+        mockMvc.perform(post("/api/v1/tasks/{key}/comments", taskKey).header("Authorization", member.token())
+                .contentType(MediaType.APPLICATION_JSON).content("{\"body\": \"On it\"}"));
+
+        mockMvc.perform(get("/api/v1/tasks/{key}/history", taskKey).header("Authorization", member.token()))
+                .andExpect(jsonPath("$[0].entityType").value("COMMENT"))
+                .andExpect(jsonPath("$[0].action").value("CREATED"));
+    }
+
+    @Test
+    void anOutsiderCannotReadATasksHistory() throws Exception {
+        mockMvc.perform(get("/api/v1/tasks/{key}/history", taskKey).header("Authorization", outsider.token()))
+                .andExpect(status().isNotFound());
     }
 
     @Test
